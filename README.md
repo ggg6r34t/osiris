@@ -298,6 +298,8 @@ Osiris/
 Contributions, issues, and feature requests are welcome! Please open an issue or pull request on GitHub:
 https://github.com/ggg6r34t/osiris
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
 ---
 
 ## 📜 License
