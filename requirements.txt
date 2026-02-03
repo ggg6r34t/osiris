@@ -1,0 +1,17 @@
+rich~=14.0.0
+requests~=2.32.4
+fuzzywuzzy~=0.18.0
+python-Levenshtein~=0.20.0
+data~=0.4
+pyfiglet~=1.0.2
+osiris~=1.0.0
+setuptools~=58.0.4
+python-whois~=0.7.3
+dnspython~=2.7.0
+fastapi~=0.116.1
+ipwhois~=1.1.0
+urllib3~=2.4.0
+pyopenssl~=25.1.0
+python-dateutil~=2.9.0.post0
+beautifulsoup4~=4.12.3
+pysocks~=1.7.1
