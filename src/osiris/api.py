@@ -1,0 +1,476 @@
+import copy
+import os
+import time
+from concurrent.futures import ThreadPoolExecutor
+from typing import Callable
+
+import requests
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+from osiris.clone_detector import detect_clones
+from osiris.config import apply_proxy_env
+from osiris.data.platforms import PLATFORM_TEMPLATES
+from osiris.dnstwist import run_dnstwist
+from osiris.domain_matcher import find_similar_domains
+from osiris.enrichment import enrich, is_valid_domain, normalize_domain
+from osiris.input_handler import parse_input
+from osiris.logger import log_event, log_search_history
+from osiris.platform_functions import (
+    add_custom_platform,
+    load_custom_platforms,
+    remove_custom_platform,
+)
+from osiris.run_phishing_dorks import run_phishing_dorks
+from osiris.search_links import generate_search_links
+from osiris.text_clone_search import text_clone_search
+from osiris.threat_scoring import score_threat
+from osiris.utils import build_http_session, dedupe_links, fuzzy_match_platforms
+from osiris.variant_generator import generate_typosquatting_domains
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_methods=["GET", "POST", "DELETE"],
+    allow_headers=["*"],
+)
+
+
+def _run(fn: Callable, *args, **kwargs):
+    """Run an upstream domain-intel call, converting unexpected exceptions into a
+    502 HTTPException. Exceptions raised inside a handler (rather than a proper
+    response) bypass the CORS middleware, so the browser would otherwise see a
+    misleading CORS error instead of the real failure. HTTPExceptions pass
+    through untouched (they get CORS headers via Starlette's inner handler)."""
+    try:
+        return fn(*args, **kwargs)
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001 - deliberate boundary guard
+        raise HTTPException(status_code=502, detail=f"{type(exc).__name__}: {exc}")
+
+
+def merged_templates() -> dict:
+    """Base platform templates deep-merged with user custom platforms.
+
+    Re-reads custom_platforms.json on every call so additions/removals made
+    at runtime (via /api/custom-platforms) are reflected immediately.
+    """
+    templates = copy.deepcopy(PLATFORM_TEMPLATES)
+    for category, platforms in (load_custom_platforms() or {}).items():
+        if not isinstance(platforms, dict):
+            continue
+        templates.setdefault(category, {}).update(platforms)
+    return templates
+
+
+# --------------------------------------------------------------------------- #
+# Platforms
+# --------------------------------------------------------------------------- #
+@app.get("/api/platforms")
+def get_platforms():
+    templates = merged_templates()
+    return {
+        "categories": list(templates.keys()),
+        "platforms": {c: sorted(names) for c, names in templates.items()},
+    }
+
+
+# --------------------------------------------------------------------------- #
+# Search
+# --------------------------------------------------------------------------- #
+class SearchRequest(BaseModel):
+    target: str | None = None
+    targets: list[str] | None = None
+    platforms: list[str] | None = None
+    exclude_platforms: list[str] | None = None
+    exclude_categories: list[str] | None = None
+    fuzzy: bool = False
+    dedupe: bool = False
+    score: bool = False
+    sort_score: bool = False
+    max_links: int = 0
+    tag: str | None = None
+    log: bool = False
+
+
+@app.post("/api/search")
+def search(req: SearchRequest):
+    targets = [t.strip() for t in (req.targets or ([req.target] if req.target else [])) if t and t.strip()]
+    if not targets:
+        raise HTTPException(status_code=422, detail="At least one target is required.")
+
+    templates = merged_templates()
+    platforms = parse_input(req.platforms)
+    if req.fuzzy:
+        platforms = fuzzy_match_platforms(platforms, templates)
+
+    exclude_platforms = {p.strip().lower() for p in (req.exclude_platforms or [])}
+    exclude_categories = {c.strip().lower() for c in (req.exclude_categories or [])}
+
+    results: list[dict] = []
+    for target in targets:
+        links = generate_search_links(target, platforms, templates)
+
+        if exclude_platforms or exclude_categories:
+            links = [
+                l for l in links
+                if l.get("platform", "").lower() not in exclude_platforms
+                and l.get("category", "").lower() not in exclude_categories
+            ]
+
+        if req.score:
+            for link in links:
+                threat = score_threat(link.get("url", ""), target)
+                link["score"] = threat.get("score")
+                link["label"] = threat.get("label")
+                link["reasons"] = threat.get("reasons")
+            if req.sort_score:
+                links.sort(key=lambda l: l.get("score", 0), reverse=True)
+
+        if req.dedupe:
+            links = dedupe_links(links, key_fields=("url",))
+
+        if req.max_links and req.max_links > 0:
+            links = links[: req.max_links]
+
+        for link in links:
+            link["target"] = target
+            if req.tag:
+                link["tag"] = req.tag
+
+        results.extend(links)
+
+        if req.log:
+            log_search_history(target, links)
+
+    if req.log:
+        log_event(
+            "search_complete",
+            {"targets": targets, "links": len(results), "tag": req.tag},
+        )
+
+    return {"targets": targets, "count": len(results), "results": results}
+
+
+# --------------------------------------------------------------------------- #
+# Link reachability check
+# --------------------------------------------------------------------------- #
+class CheckRequest(BaseModel):
+    urls: list[str]
+    timeout: int | None = None
+    retries: int | None = None
+    user_agent: str | None = None
+    verify_tls: bool | None = None
+    rate_limit: float | None = None  # accepted for parity; concurrency bounds load
+
+
+MAX_CHECK_URLS = 1000
+
+
+def _check_one(session: requests.Session, url: str, timeout: int, verify_tls: bool) -> dict:
+    try:
+        resp = session.head(url, timeout=timeout, allow_redirects=True, verify=verify_tls)
+        if resp.status_code in {403, 405} or resp.status_code >= 400:
+            resp = session.get(url, timeout=timeout, allow_redirects=True, verify=verify_tls)
+        return {"url": url, "ok": resp.status_code < 400, "status": resp.status_code}
+    except Exception:  # noqa: BLE001 - one bad URL must not fail the batch
+        return {"url": url, "ok": False, "status": None}
+
+
+@app.post("/api/check")
+def check(req: CheckRequest):
+    # Cap input to bound resource use. This endpoint issues server-side requests
+    # to the supplied URLs; keep it behind localhost-only CORS and do not expose
+    # it publicly (SSRF surface inherent to a link checker).
+    urls = [u for u in req.urls if u][:MAX_CHECK_URLS]
+    if not urls:
+        return {"results": []}
+
+    def _int_env(name: str, default: str) -> int:
+        # Env values may be stored as float strings (e.g. "12.0" from settings).
+        try:
+            return int(float(os.getenv(name) or default))
+        except (TypeError, ValueError):
+            return int(float(default))
+
+    timeout = (
+        req.timeout
+        if req.timeout is not None
+        else _int_env("OSIRIS_CHECK_TIMEOUT", os.getenv("OSIRIS_REQUEST_TIMEOUT", "5"))
+    )
+    retries = req.retries if req.retries is not None else _int_env("OSIRIS_CHECK_RETRIES", "2")
+    verify_tls = (
+        req.verify_tls
+        if req.verify_tls is not None
+        else os.getenv("OSIRIS_VERIFY_TLS", "true").lower() != "false"
+    )
+    user_agent = req.user_agent or os.getenv("OSIRIS_USER_AGENT")
+
+    proxies = {}
+    if os.getenv("OSIRIS_HTTP_PROXY"):
+        proxies["http"] = os.getenv("OSIRIS_HTTP_PROXY")
+    if os.getenv("OSIRIS_HTTPS_PROXY"):
+        proxies["https"] = os.getenv("OSIRIS_HTTPS_PROXY")
+
+    session = build_http_session(
+        user_agent=user_agent, retries=retries, proxies=proxies or None
+    )
+
+    rate = (
+        req.rate_limit
+        if req.rate_limit is not None
+        else float(os.getenv("OSIRIS_RATE_LIMIT", "0") or 0)
+    )
+
+    if rate and rate > 0:
+        # Rate-limited: issue sequentially with a fixed inter-request delay.
+        results = []
+        for url in urls:
+            results.append(_check_one(session, url, timeout, verify_tls))
+            time.sleep(1.0 / rate)
+    else:
+        with ThreadPoolExecutor(max_workers=min(16, len(urls))) as pool:
+            results = list(
+                pool.map(lambda u: _check_one(session, u, timeout, verify_tls), urls)
+            )
+    return {"results": results}
+
+
+# --------------------------------------------------------------------------- #
+# Network settings (mirrors cli.py env handling — process-global, per instance)
+# --------------------------------------------------------------------------- #
+class SettingsRequest(BaseModel):
+    user_agent: str | None = None
+    verify_tls: bool | None = None
+    request_timeout: float | None = None
+    rate_limit: float | None = None
+    http_proxy: str | None = None
+    https_proxy: str | None = None
+    tor: bool | None = None
+
+
+def _current_settings() -> dict:
+    return {
+        "user_agent": os.getenv("OSIRIS_USER_AGENT", "Osiris/1.0"),
+        "verify_tls": os.getenv("OSIRIS_VERIFY_TLS", "true").lower() != "false",
+        "request_timeout": float(os.getenv("OSIRIS_REQUEST_TIMEOUT", "10")),
+        "rate_limit": float(os.getenv("OSIRIS_RATE_LIMIT", "0")),
+        "http_proxy": os.getenv("OSIRIS_HTTP_PROXY", ""),
+        "https_proxy": os.getenv("OSIRIS_HTTPS_PROXY", ""),
+    }
+
+
+@app.get("/api/settings")
+def get_settings():
+    return _current_settings()
+
+
+@app.post("/api/settings")
+def save_settings(req: SettingsRequest):
+    if req.user_agent is not None:
+        os.environ["OSIRIS_USER_AGENT"] = req.user_agent
+    if req.verify_tls is not None:
+        os.environ["OSIRIS_VERIFY_TLS"] = "true" if req.verify_tls else "false"
+    if req.request_timeout is not None:
+        os.environ["OSIRIS_REQUEST_TIMEOUT"] = str(req.request_timeout)
+    if req.rate_limit is not None:
+        os.environ["OSIRIS_RATE_LIMIT"] = str(req.rate_limit)
+
+    if req.tor:
+        proxy = "socks5h://127.0.0.1:9050"
+        os.environ["OSIRIS_HTTP_PROXY"] = proxy
+        os.environ["OSIRIS_HTTPS_PROXY"] = proxy
+    else:
+        if req.http_proxy is not None:
+            os.environ["OSIRIS_HTTP_PROXY"] = req.http_proxy
+        if req.https_proxy is not None:
+            os.environ["OSIRIS_HTTPS_PROXY"] = req.https_proxy
+
+    apply_proxy_env(
+        {
+            "http_proxy": os.getenv("OSIRIS_HTTP_PROXY", ""),
+            "https_proxy": os.getenv("OSIRIS_HTTPS_PROXY", ""),
+        }
+    )
+    return _current_settings()
+
+
+# --------------------------------------------------------------------------- #
+# Custom platforms
+# --------------------------------------------------------------------------- #
+class CustomPlatformRequest(BaseModel):
+    category: str
+    name: str
+    url: str
+
+
+class RemoveCustomPlatformRequest(BaseModel):
+    category: str
+    name: str
+
+
+@app.get("/api/custom-platforms")
+def get_custom_platforms():
+    return {"platforms": load_custom_platforms() or {}}
+
+
+@app.post("/api/custom-platforms")
+def create_custom_platform(req: CustomPlatformRequest):
+    category = req.category.strip()
+    name = req.name.strip()
+    url = req.url.strip()
+    if not category or not name or not url:
+        raise HTTPException(status_code=422, detail="category, name and url are required.")
+    if not (url.lower().startswith("http://") or url.lower().startswith("https://")):
+        raise HTTPException(
+            status_code=422, detail="URL must start with http:// or https://."
+        )
+    if "{query}" not in url:
+        raise HTTPException(status_code=422, detail="URL must include the {query} placeholder.")
+    add_custom_platform(category, name, url)
+    return {"platforms": load_custom_platforms() or {}}
+
+
+@app.delete("/api/custom-platforms")
+def delete_custom_platform(req: RemoveCustomPlatformRequest):
+    remove_custom_platform(req.category.strip(), req.name.strip())
+    return {"platforms": load_custom_platforms() or {}}
+
+
+# --------------------------------------------------------------------------- #
+# Domain-intelligence tools (Phase 2)
+#
+# These make outbound network calls (WHOIS, DNS, HTTP, certificate transparency,
+# third-party APIs) and can be slow. Each mirrors a CLI mode and reuses the same
+# underlying functions; no server-side files are written and no browser is opened
+# server-side (link lists are returned for the client to open).
+# --------------------------------------------------------------------------- #
+class DomainRequest(BaseModel):
+    domain: str
+
+
+class TextRequest(BaseModel):
+    text: str
+
+
+class KeywordsRequest(BaseModel):
+    keywords: list[str] | str
+
+
+class DeepSearchRequest(BaseModel):
+    target: str
+    score: bool = False
+
+
+def _valid_domain(domain: str) -> str:
+    domain = normalize_domain((domain or "").strip())
+    if not domain or not is_valid_domain(domain):
+        raise HTTPException(
+            status_code=422, detail="Provide a valid domain (e.g. example.com)."
+        )
+    return domain
+
+
+@app.post("/api/enrich")
+def api_enrich(req: DomainRequest):
+    domain = _valid_domain(req.domain)
+    return _run(enrich, f"http://{domain}")
+
+
+@app.post("/api/domain-match")
+def api_domain_match(req: DomainRequest):
+    domain = _valid_domain(req.domain)
+    return {"domain": domain, "matches": _run(find_similar_domains, domain)}
+
+
+@app.post("/api/dnstwist")
+def api_dnstwist(req: DomainRequest):
+    domain = _valid_domain(req.domain)
+    return {"domain": domain, "results": _run(run_dnstwist, domain) or []}
+
+
+@app.post("/api/clone-detect")
+def api_clone_detect(req: DomainRequest):
+    domain = _valid_domain(req.domain)
+    variants = generate_typosquatting_domains(domain)
+    clones = _run(detect_clones, domain, variants)
+    return {"domain": domain, "variants_checked": len(variants), "clones": clones}
+
+
+@app.post("/api/text-clone")
+def api_text_clone(req: TextRequest):
+    text = (req.text or "").strip()
+    if not text:
+        raise HTTPException(
+            status_code=422, detail="Provide legitimate site text to search for."
+        )
+    return {"links": _run(text_clone_search, [text], open_browser=False, quiet=True)}
+
+
+@app.post("/api/phishing-dorks")
+def api_phishing_dorks(req: KeywordsRequest):
+    raw = req.keywords if isinstance(req.keywords, list) else [req.keywords]
+    keywords = [k.strip() for k in raw if k and k.strip()]
+    if not keywords:
+        raise HTTPException(status_code=422, detail="Provide at least one keyword.")
+    return {"links": _run(run_phishing_dorks, keywords, open_browser=False, quiet=True)}
+
+
+@app.post("/api/deep-search")
+def api_deep_search(req: DeepSearchRequest):
+    target = (req.target or "").strip()
+    if not target:
+        raise HTTPException(status_code=422, detail="Target is required.")
+
+    results: dict = {}
+    links: list[dict] = []
+
+    if "." in target:
+        base = normalize_domain(target)
+        results["enrichment"] = _run(enrich, base, is_url=True)
+
+        typo = _run(find_similar_domains, base)
+        results["typo_domains"] = typo
+        links += [
+            {"platform": "Lookalike Domain", "category": "domain", "url": f"http://{d['domain']}"}
+            for d in typo
+            if isinstance(d, dict) and d.get("domain")
+        ]
+
+        clones = _run(
+            detect_clones,
+            base,
+            [d["domain"] for d in typo if isinstance(d, dict) and d.get("domain")],
+        )
+        results["clone_sites"] = clones
+        links += [
+            {"platform": "Clone Candidate", "category": "domain", "url": f"http://{d}"}
+            for d in clones
+            if isinstance(d, str)
+        ]
+
+    text_clones = _run(text_clone_search, [target], open_browser=False, quiet=True)
+    results["text_clones"] = text_clones
+    links += text_clones
+
+    links += generate_search_links(target, ["all"], merged_templates())
+
+    dorks = _run(run_phishing_dorks, [target], open_browser=False, quiet=True)
+    results["phishing_dorks"] = dorks
+    links += dorks
+
+    if req.score:
+        for link in links:
+            threat = score_threat(link.get("url", ""), target)
+            link["score"] = threat.get("score")
+            link["label"] = threat.get("label")
+            link["reasons"] = threat.get("reasons")
+
+    for link in links:
+        link["target"] = target
+
+    return {"target": target, "results": results, "count": len(links), "links": links}

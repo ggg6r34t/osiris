@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -24,6 +25,7 @@ DEFAULT_CONFIG_PATHS = [
 
 
 def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
+    explicit = config_path is not None
     paths = [Path(config_path)] if config_path else DEFAULT_CONFIG_PATHS
 
     config: Dict[str, Any] = dict(DEFAULT_CONFIG)
@@ -34,9 +36,15 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
                     file_config = json.load(f)
                 if isinstance(file_config, dict):
                     config.update(file_config)
-            except Exception:
-                pass
-            break
+            except Exception as e:
+                # An explicitly-requested config that fails to parse must not be
+                # silently ignored — the user believes it was applied.
+                if explicit:
+                    print(f"[!] Failed to read config file {config_path}: {e}", file=sys.stderr)
+            return config
+
+    if explicit:
+        print(f"[!] Config file not found: {config_path}", file=sys.stderr)
 
     return config
 

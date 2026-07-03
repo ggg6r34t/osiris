@@ -318,6 +318,7 @@ def main():
                         f"   WHOIS: Registrar: {m['whois'].get('registrar')}, Created: {m['whois'].get('creation_date')}")
         else:
             print("✅ No suspicious domains found.")
+        return
 
     if args.deep_search:
         if not args.target:
@@ -386,16 +387,6 @@ def main():
                     "reasons": threat.get("reasons"),
                 })
 
-        # Open all links
-        if args.open:
-            open_links_in_browser(
-                all_links,
-                randomize=args.randomize,
-                browser_name=args.browser,
-                delay=args.open_delay,
-                max_open=args.max_open if args.max_open > 0 else None
-            )
-
         if args.dedupe:
             all_links = dedupe_links(all_links, key_fields=("url",))
 
@@ -420,6 +411,16 @@ def main():
 
         if max_links and max_links > 0:
             all_links = all_links[:max_links]
+
+        # Open links only after filtering (dedupe / check / max-links), matching normal search.
+        if args.open:
+            open_links_in_browser(
+                all_links,
+                randomize=args.randomize,
+                browser_name=args.browser,
+                delay=args.open_delay,
+                max_open=args.max_open if args.max_open > 0 else None
+            )
 
         # Save results only if --export is specified
         if args.export:
@@ -529,14 +530,6 @@ def main():
     if args.list_custom_platforms:
         list_custom_platforms()
         return
-
-    if args.list_platforms:
-        console.print("[bold cyan]Available Platforms by Category:[/bold cyan]")
-        for category, platforms in PLATFORM_TEMPLATES.items():
-            console.print(f"\n[bold green]{category}[/bold green]")
-            for name in platforms:
-                console.print(f"  • {name}")
-        return  # Exit after listing
 
     if args.list_browsers:
         list_available_browsers()

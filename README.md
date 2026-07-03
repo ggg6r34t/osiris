@@ -194,6 +194,43 @@ You can extend the default platform database by providing your own custom platfo
 
 ---
 
+## 🌐 Web UI (experimental)
+
+A web UI is available under `web/` (Next.js) backed by a FastAPI server (`api_server.py` / `osiris.api`), organized
+into three tabs:
+
+- **Search** — target (single or batch), platform/category picker, and an Options panel exposing the CLI's
+  search flags: fuzzy matching, dedupe, threat scoring + sort-by-score, max-links, exclude platforms/categories,
+  tag, and server-side logging. Results are grouped by category with per-row/per-category/all selection, staggered
+  **Open selected** in new tabs (open-delay / max-open / randomize), **Check** reachability (live/dead badges +
+  "reachable only" filter), copy, and CSV/JSON/TXT export.
+- **Domain Tools** — the domain-intelligence modes: **Enrich** (WHOIS/DNS/hosting/SSL/favicon/threat-intel with a
+  computed risk score), **Domain Match** (certificate-transparency lookalikes), **DNSTwist** (permutation scan),
+  **Clone Detect** (byte-identical typosquat clones), **Text Clone** and **Phishing Dorks** (dork-link builders),
+  and **Deep Search** (all of the above combined). These make outbound network calls and can be slow.
+- **Custom Platforms** — add/list/remove user platforms (persisted to `custom_platforms.json`).
+- **Settings** — User-Agent, request timeout, rate limit, HTTP(S) proxy, Tor, and TLS verification.
+
+The web UI now covers the full CLI surface except a few flags that are inherently CLI/host-specific
+(`--browser`/`--list-browsers`, `--save-dir`/`--output`, `--json`, `--no-banner`, `--config`).
+
+Run both servers in separate terminals:
+
+```bash
+# Terminal 1 — backend API (from repo root, with the venv active)
+uvicorn osiris.api:app --reload --port 8000
+
+# Terminal 2 — frontend
+cd web
+npm install   # first run only
+npm run dev
+```
+
+Then open http://localhost:3000. By default the frontend calls the API at `http://localhost:8000`; override with
+`NEXT_PUBLIC_API_BASE_URL` (see `web/.env.local.example`).
+
+---
+
 ## ⚙️ Configuration & API Keys
 
 Osiris supports environment-based configuration for production usage:

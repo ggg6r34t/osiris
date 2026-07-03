@@ -100,11 +100,19 @@ def find_similar_domains(domain):
     variants = generate_typosquatting_domains(domain)
     print(f"→ Generated {len(variants)} typo variants.")
 
-    cert_domains = fetch_crtsh_domains(domain)
+    # Dedupe certificate domains before matching.
+    cert_domains = list(dict.fromkeys(fetch_crtsh_domains(domain)))
     print(f"→ Found {len(cert_domains)} domains via certificates")
+
+    # Cap the number of (blocking, potentially slow) WHOIS lookups so a brand with
+    # thousands of certificate subdomains can't make this hang for many minutes.
+    MAX_WHOIS_LOOKUPS = 25
 
     suspicious = []
     for cert_domain in cert_domains:
+        if len(suspicious) >= MAX_WHOIS_LOOKUPS:
+            print(f"→ Reached WHOIS lookup cap ({MAX_WHOIS_LOOKUPS}); stopping.")
+            break
         for variant in variants:
             if variant in cert_domain:
                 whois_info = get_whois_info(cert_domain)

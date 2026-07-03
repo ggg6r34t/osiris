@@ -15,7 +15,8 @@ def load_platform_templates(custom_path=None, use_default=True):
     Load and merge platform templates from the default and optional custom JSON file.
     If you use_default is False, only the custom templates will be loaded (if provided).
     """
-    templates = PLATFORM_TEMPLATES.copy() if use_default else {}
+    # Per-category copy so merging custom templates never mutates the global defaults.
+    templates = {k: dict(v) for k, v in PLATFORM_TEMPLATES.items()} if use_default else {}
 
     if custom_path:
         if not os.path.isfile(custom_path):
@@ -49,7 +50,7 @@ def add_custom_platform(category, name, url):
         return
 
     if os.path.exists(CUSTOM_PLATFORMS_FILE):
-        with open(CUSTOM_PLATFORMS_FILE, "r") as f:
+        with open(CUSTOM_PLATFORMS_FILE, "r", encoding="utf-8") as f:
             try:
                 custom_data = json.load(f)
             except json.JSONDecodeError:
@@ -61,7 +62,7 @@ def add_custom_platform(category, name, url):
         custom_data[category] = {}
     custom_data[category][name] = url
 
-    with open(CUSTOM_PLATFORMS_FILE, "w") as f:
+    with open(CUSTOM_PLATFORMS_FILE, "w", encoding="utf-8") as f:
         json.dump(custom_data, f, indent=4)
 
     console.print(f"[bold green]✓ Added:[/bold green] {name} to \\[{category}]")
@@ -69,12 +70,12 @@ def add_custom_platform(category, name, url):
 
 def load_custom_platforms():
     if os.path.exists(CUSTOM_PLATFORMS_FILE):
-        with open(CUSTOM_PLATFORMS_FILE, "r") as f:
+        with open(CUSTOM_PLATFORMS_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
 
 def save_custom_platforms(platforms):
-    with open(CUSTOM_PLATFORMS_FILE, "w") as f:
+    with open(CUSTOM_PLATFORMS_FILE, "w", encoding="utf-8") as f:
         json.dump(platforms, f, indent=2)
 
 def list_custom_platforms():
@@ -104,11 +105,14 @@ def remove_custom_platform(category, name):
 # Load and merge custom platforms
 if os.path.exists(CUSTOM_PLATFORMS_FILE):
     try:
-        with open(CUSTOM_PLATFORMS_FILE, "r", ) as f:
+        with open(CUSTOM_PLATFORMS_FILE, "r", encoding="utf-8") as f:
             custom_templates = json.load(f)
-            for category, platforms in custom_templates.items():
-                if category not in PLATFORM_TEMPLATES:
-                    PLATFORM_TEMPLATES[category] = {}
-                PLATFORM_TEMPLATES[category].update(platforms)
+            if isinstance(custom_templates, dict):
+                for category, platforms in custom_templates.items():
+                    if not isinstance(platforms, dict):
+                        continue
+                    if category not in PLATFORM_TEMPLATES:
+                        PLATFORM_TEMPLATES[category] = {}
+                    PLATFORM_TEMPLATES[category].update(platforms)
     except Exception as e:
         print(f"[!] Failed to load custom_platforms.json: {e}")

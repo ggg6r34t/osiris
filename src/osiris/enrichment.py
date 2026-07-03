@@ -1,6 +1,7 @@
 import os
 import ssl
 import re
+import ipaddress
 from typing import Any, Dict, Optional
 from functools import lru_cache
 import whois
@@ -283,7 +284,7 @@ def analyze_page_metadata(url: str):
     try:
         r = http_get(url)
         soup = BeautifulSoup(r.text, "html.parser")
-        title = soup.title.string if soup.title else ""
+        title = soup.title.get_text(strip=True) if soup.title else ""
         meta_desc = soup.find("meta", attrs={"name": "description"})
         meta_desc = meta_desc.get("content") if meta_desc else ""
         h1_tags = [h.get_text(strip=True) for h in soup.find_all("h1")]
@@ -324,15 +325,19 @@ def check_abuseipdb(ip: str):
         return {"error": str(e)}
 
 def save_report(results: list, base_filename: str):
+    if not results:
+        return None, None
+
     ts = datetime.now().strftime("%Y%m%d_%H%M")
     json_path = f"{base_filename}_{ts}.json"
     csv_path = f"{base_filename}_{ts}.csv"
 
-    with open(json_path, "w") as jf:
+    with open(json_path, "w", encoding="utf-8") as jf:
         json.dump(results, jf, indent=2)
 
-    with open(csv_path, "w", newline='') as cf:
-        writer = csv.DictWriter(cf, fieldnames=results[0].keys())
+    fieldnames = list({key for row in results for key in row.keys()})
+    with open(csv_path, "w", newline="", encoding="utf-8") as cf:
+        writer = csv.DictWriter(cf, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(results)
 
@@ -349,14 +354,29 @@ def load_ip_blocklist(url):
     return set()
 
 def ip_in_blocklist(ip, blocklist):
-    return any(ip.startswith(bl.split("/")[0]) for bl in blocklist)
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    for entry in blocklist:
+        # Blocklist lines may carry trailing comments (e.g. "1.2.0.0/16 ; SBL123").
+        token = entry.split(";")[0].split()[0] if entry else ""
+        if not token:
+            continue
+        try:
+            if addr in ipaddress.ip_network(token, strict=False):
+                return True
+        except ValueError:
+            continue
+    return False
 
 def calculate_risk_score(data):
     score = 0
     whois_info = data.get("whois", {}).get("scam_indicators", {})
     ssl_info = data.get("ssl_certificate", {})
     page_meta = data.get("page_metadata", {})
-    abuse_info = data.get("threat_intel", {})
+    # threat_intel is stored as {"abuseipdb": {...}} by enrich()
+    abuse_info = data.get("threat_intel", {}).get("abuseipdb", {})
 
     # WHOIS factors
     if whois_info.get("recently_created"):
@@ -414,7 +434,8 @@ def enrich(target: str, is_url: bool = False):
     favicon_data = get_favicon_hash(domain)
     passive_dns_data = get_passive_dns_history(domain)
     page_data = analyze_page_metadata(f"http://{domain}") if is_url else {}
-    ip = dns_data.get("A")[0] if dns_data and "A" in dns_data else None
+    a_records = dns_data.get("A") if isinstance(dns_data, dict) else None
+    ip = a_records[0] if a_records else None
     geo_data = ip_geolocation(ip) if ip else {}
     abuse_data = check_abuseipdb(ip) if ip else {}
     threat_data = {"abuseipdb": abuse_data}

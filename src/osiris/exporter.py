@@ -16,10 +16,19 @@ def export_data(data, fmt, output, save_dir="exports"):
         return
 
     if fmt == "csv":
+        preferred = ["platform", "category", "url", "target", "tag", "score", "label", "reasons"]
+        present = {k for row in data if isinstance(row, dict) for k in row}
+        fieldnames = [k for k in preferred if k in present] + sorted(present - set(preferred))
+        if not fieldnames:
+            fieldnames = ["platform", "category", "url"]
         with open(filename, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=["platform", "category", "url"], extrasaction="ignore")
+            writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
             writer.writeheader()
-            writer.writerows(data)
+            for row in data:
+                r = dict(row) if isinstance(row, dict) else {}
+                if isinstance(r.get("reasons"), list):
+                    r["reasons"] = "; ".join(map(str, r["reasons"]))
+                writer.writerow(r)
 
     elif fmt == "json":
         with open(filename, "w", encoding="utf-8") as f:

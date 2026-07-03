@@ -1,22 +1,10 @@
-from fastapi import FastAPI, Query
+import os
+import sys
 
-from osiris.search_links import generate_search_links
-from osiris.threat_scoring import score_threat
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+SRC_DIR = os.path.join(ROOT_DIR, "src")
 
-app = FastAPI()
+if SRC_DIR not in sys.path:
+    sys.path.insert(0, SRC_DIR)
 
-@app.get("/search/")
-def search(target: str = Query(...), category: str = Query(None)):
-    results = generate_search_links(target, category)
-    enriched = []
-
-    for r in results:
-        threat = score_threat(r, target)
-        enriched.append({
-            "url": r,
-            "score": threat["score"],
-            "label": threat["label"],
-            "reasons": threat["reasons"]
-        })
-
-    return {"target": target, "results": enriched}
+from osiris.api import app  # noqa: E402

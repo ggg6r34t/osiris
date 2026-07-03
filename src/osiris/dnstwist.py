@@ -2,10 +2,17 @@ import subprocess
 import json
 import sys
 
-def run_dnstwist(domain):
+def run_dnstwist(domain, timeout: int = 180):
     try:
         cmd = [sys.executable, "-m", "dnstwist", "--format", "json", domain]
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+        result = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True,
+            timeout=timeout,
+        )
         data = json.loads(result.stdout)
 
         if not data:
@@ -34,6 +41,9 @@ def run_dnstwist(domain):
 
         return processed if processed else None
 
+    except subprocess.TimeoutExpired:
+        print(f"[!] dnstwist timed out after {timeout}s for {domain}")
+        return None
     except subprocess.CalledProcessError as e:
         print(f"[!] Error running dnstwist: {e.stderr.strip()}")
         return None
