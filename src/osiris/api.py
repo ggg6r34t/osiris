@@ -53,6 +53,23 @@ def _run(fn: Callable, *args, **kwargs):
         raise HTTPException(status_code=502, detail=f"{type(exc).__name__}: {exc}")
 
 
+_CACHE: dict[str, tuple[float, object]] = {}
+_CACHE_TTL_SECONDS = 3600
+
+
+def _cached(key: str, producer: Callable):
+    """Tiny in-process TTL cache for slow/flaky domain-intel lookups. This is a
+    single-user local tool, so process memory is sufficient (cleared on restart).
+    Exceptions from the producer propagate and are never cached."""
+    now = time.monotonic()
+    hit = _CACHE.get(key)
+    if hit is not None and now - hit[0] < _CACHE_TTL_SECONDS:
+        return hit[1]
+    value = producer()
+    _CACHE[key] = (now, value)
+    return value
+
+
 def merged_templates() -> dict:
     """Base platform templates deep-merged with user custom platforms.
 
@@ -378,27 +395,33 @@ def _valid_domain(domain: str) -> str:
 @app.post("/api/enrich")
 def api_enrich(req: DomainRequest):
     domain = _valid_domain(req.domain)
-    return _run(enrich, f"http://{domain}")
+    return _cached(f"enrich:{domain}", lambda: _run(enrich, f"http://{domain}"))
 
 
 @app.post("/api/domain-match")
 def api_domain_match(req: DomainRequest):
     domain = _valid_domain(req.domain)
-    return {"domain": domain, "matches": _run(find_similar_domains, domain)}
+    matches = _cached(f"domain-match:{domain}", lambda: _run(find_similar_domains, domain))
+    return {"domain": domain, "matches": matches}
 
 
 @app.post("/api/dnstwist")
 def api_dnstwist(req: DomainRequest):
     domain = _valid_domain(req.domain)
-    return {"domain": domain, "results": _run(run_dnstwist, domain) or []}
+    results = _cached(f"dnstwist:{domain}", lambda: _run(run_dnstwist, domain) or [])
+    return {"domain": domain, "results": results}
 
 
 @app.post("/api/clone-detect")
 def api_clone_detect(req: DomainRequest):
     domain = _valid_domain(req.domain)
-    variants = generate_typosquatting_domains(domain)
-    clones = _run(detect_clones, domain, variants)
-    return {"domain": domain, "variants_checked": len(variants), "clones": clones}
+
+    def _produce():
+        variants = generate_typosquatting_domains(domain)
+        clones = _run(detect_clones, domain, variants)
+        return {"domain": domain, "variants_checked": len(variants), "clones": clones}
+
+    return _cached(f"clone-detect:{domain}", _produce)
 
 
 @app.post("/api/text-clone")
@@ -426,51 +449,54 @@ def api_deep_search(req: DeepSearchRequest):
     if not target:
         raise HTTPException(status_code=422, detail="Target is required.")
 
-    results: dict = {}
-    links: list[dict] = []
+    def _produce():
+        results: dict = {}
+        links: list[dict] = []
 
-    if "." in target:
-        base = normalize_domain(target)
-        results["enrichment"] = _run(enrich, base, is_url=True)
+        if "." in target:
+            base = normalize_domain(target)
+            results["enrichment"] = _run(enrich, base, is_url=True)
 
-        typo = _run(find_similar_domains, base)
-        results["typo_domains"] = typo
-        links += [
-            {"platform": "Lookalike Domain", "category": "domain", "url": f"http://{d['domain']}"}
-            for d in typo
-            if isinstance(d, dict) and d.get("domain")
-        ]
+            typo = _run(find_similar_domains, base)
+            results["typo_domains"] = typo
+            links.extend(
+                {"platform": "Lookalike Domain", "category": "domain", "url": f"http://{d['domain']}"}
+                for d in typo
+                if isinstance(d, dict) and d.get("domain")
+            )
 
-        clones = _run(
-            detect_clones,
-            base,
-            [d["domain"] for d in typo if isinstance(d, dict) and d.get("domain")],
-        )
-        results["clone_sites"] = clones
-        links += [
-            {"platform": "Clone Candidate", "category": "domain", "url": f"http://{d}"}
-            for d in clones
-            if isinstance(d, str)
-        ]
+            clones = _run(
+                detect_clones,
+                base,
+                [d["domain"] for d in typo if isinstance(d, dict) and d.get("domain")],
+            )
+            results["clone_sites"] = clones
+            links.extend(
+                {"platform": "Clone Candidate", "category": "domain", "url": f"http://{d}"}
+                for d in clones
+                if isinstance(d, str)
+            )
 
-    text_clones = _run(text_clone_search, [target], open_browser=False, quiet=True)
-    results["text_clones"] = text_clones
-    links += text_clones
+        text_clones = _run(text_clone_search, [target], open_browser=False, quiet=True)
+        results["text_clones"] = text_clones
+        links += text_clones
 
-    links += generate_search_links(target, ["all"], merged_templates())
+        links += generate_search_links(target, ["all"], merged_templates())
 
-    dorks = _run(run_phishing_dorks, [target], open_browser=False, quiet=True)
-    results["phishing_dorks"] = dorks
-    links += dorks
+        dorks = _run(run_phishing_dorks, [target], open_browser=False, quiet=True)
+        results["phishing_dorks"] = dorks
+        links += dorks
 
-    if req.score:
+        if req.score:
+            for link in links:
+                threat = score_threat(link.get("url", ""), target)
+                link["score"] = threat.get("score")
+                link["label"] = threat.get("label")
+                link["reasons"] = threat.get("reasons")
+
         for link in links:
-            threat = score_threat(link.get("url", ""), target)
-            link["score"] = threat.get("score")
-            link["label"] = threat.get("label")
-            link["reasons"] = threat.get("reasons")
+            link["target"] = target
 
-    for link in links:
-        link["target"] = target
+        return {"target": target, "results": results, "count": len(links), "links": links}
 
-    return {"target": target, "results": results, "count": len(links), "links": links}
+    return _cached(f"deep-search:{target}:{req.score}", _produce)
