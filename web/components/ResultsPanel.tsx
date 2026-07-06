@@ -148,9 +148,9 @@ export default function ResultsPanel({ results, target }: ResultsPanelProps) {
   const [checking, setChecking] = useState(false);
   const [reachableOnly, setReachableOnly] = useState(false);
 
-  const [openDelay, setOpenDelay] = useState("0.5");
   const [maxOpen, setMaxOpen] = useState("0");
   const [randomize, setRandomize] = useState(false);
+  const [openNote, setOpenNote] = useState<string | null>(null);
 
   // Transient state (selection/checks/filter) resets automatically: page.tsx
   // remounts this panel via a per-search `key` when a new result set arrives.
@@ -226,11 +226,15 @@ export default function ResultsPanel({ results, target }: ResultsPanelProps) {
 
   function openSelected() {
     const urls = filtered.filter((r) => selected.has(r.url)).map((r) => r.url);
-    openLinks(urls, {
-      delay: parseFloat(openDelay) || 0,
+    const { opened, attempted } = openLinks(urls, {
       maxOpen: Math.max(0, parseInt(maxOpen || "0", 10) || 0),
       randomize,
     });
+    setOpenNote(
+      opened < attempted
+        ? `Opened ${opened} of ${attempted}. Your browser blocked the rest — allow pop-ups for this site, then try again.`
+        : null,
+    );
   }
 
   const selectedUrls = filtered
@@ -324,18 +328,6 @@ export default function ResultsPanel({ results, target }: ResultsPanelProps) {
             Open selected
           </button>
           <label className="flex items-center gap-1.5 text-xs text-fg-muted">
-            delay
-            <input
-              type="number"
-              min={0}
-              step={0.1}
-              value={openDelay}
-              onChange={(e) => setOpenDelay(e.target.value)}
-              className="w-16 rounded border border-line bg-surface px-2 py-1 text-fg outline-none focus:border-accent/60"
-            />
-            s
-          </label>
-          <label className="flex items-center gap-1.5 text-xs text-fg-muted">
             max
             <input
               type="number"
@@ -368,6 +360,12 @@ export default function ResultsPanel({ results, target }: ResultsPanelProps) {
             Clear
           </button>
         </div>
+      )}
+
+      {openNote && (
+        <p className="animate-fade-in rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-400">
+          {openNote}
+        </p>
       )}
 
       {/* Results */}
