@@ -1,5 +1,6 @@
 import copy
 import os
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
@@ -68,6 +69,15 @@ def _cached(key: str, producer: Callable):
     value = producer()
     _CACHE[key] = (now, value)
     return value
+
+
+def _env_proxies() -> dict | None:
+    proxies = {}
+    if os.getenv("OSIRIS_HTTP_PROXY"):
+        proxies["http"] = os.getenv("OSIRIS_HTTP_PROXY")
+    if os.getenv("OSIRIS_HTTPS_PROXY"):
+        proxies["https"] = os.getenv("OSIRIS_HTTPS_PROXY")
+    return proxies or None
 
 
 def merged_templates() -> dict:
@@ -500,3 +510,105 @@ def api_deep_search(req: DeepSearchRequest):
         return {"target": target, "results": results, "count": len(links), "links": links}
 
     return _cached(f"deep-search:{target}:{req.score}", _produce)
+
+
+# --------------------------------------------------------------------------- #
+# Brand-abuse / violation search via the Panda regex API
+#
+# Host + credentials come from the environment so nothing sensitive is
+# committed: OSIRIS_PANDA_URL, OSIRIS_PANDA_LOGIN, OSIRIS_PANDA_KEY.
+# --------------------------------------------------------------------------- #
+class RegexRequest(BaseModel):
+    regex: str
+    id_only: bool = False
+
+
+_DOMAIN_FIELD_CANDIDATES = ("domain", "url", "host", "hostname", "fqdn", "site", "name")
+_DOMAIN_RE = re.compile(
+    r"\b((?:https?://)?[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+)\b",
+    re.IGNORECASE,
+)
+
+
+def _extract_domain(record: dict) -> str | None:
+    """Best-effort domain/URL extraction from an arbitrary Panda record."""
+    for field in _DOMAIN_FIELD_CANDIDATES:
+        value = record.get(field)
+        if isinstance(value, str) and "." in value:
+            return value.strip()
+    for value in record.values():
+        if isinstance(value, str):
+            match = _DOMAIN_RE.search(value)
+            if match:
+                return match.group(1)
+    return None
+
+
+def _normalize_panda(payload: dict) -> list[dict]:
+    """Normalize the Panda `data` blob (dict or list) into flat result rows.
+    Each row: {id, domain, url, raw}. Pure/offline — unit-tested."""
+    data = (payload or {}).get("data") or {}
+    if isinstance(data, dict):
+        items = list(data.items())
+    elif isinstance(data, list):
+        items = list(enumerate(data))
+    else:
+        items = []
+
+    results = []
+    for key, value in items:
+        if isinstance(value, dict):
+            rid = value.get("_id") or key
+            domain = _extract_domain(value)
+            raw = value
+        else:
+            rid, domain, raw = value, None, None
+        url = None
+        if domain:
+            url = domain if domain.lower().startswith(("http://", "https://")) else f"http://{domain}"
+        results.append({"id": str(rid), "domain": domain, "url": url, "raw": raw})
+    return results
+
+
+@app.post("/api/brand-abuse")
+def api_brand_abuse(req: RegexRequest):
+    regex = (req.regex or "").strip()
+    if not regex:
+        raise HTTPException(status_code=422, detail="Provide a regex pattern.")
+
+    base = os.getenv("OSIRIS_PANDA_URL")
+    login = os.getenv("OSIRIS_PANDA_LOGIN")
+    key = os.getenv("OSIRIS_PANDA_KEY")
+    if not base or not login or not key:
+        raise HTTPException(
+            status_code=503,
+            detail="Panda API is not configured. Set OSIRIS_PANDA_URL, "
+            "OSIRIS_PANDA_LOGIN and OSIRIS_PANDA_KEY (VPN required to reach it).",
+        )
+
+    def _produce():
+        session = build_http_session(
+            user_agent=os.getenv("OSIRIS_USER_AGENT"), proxies=_env_proxies()
+        )
+        verify_tls = os.getenv("OSIRIS_VERIFY_TLS", "true").lower() != "false"
+        try:
+            timeout = float(os.getenv("OSIRIS_REQUEST_TIMEOUT", "30") or 30)
+        except ValueError:
+            timeout = 30.0
+
+        resp = session.get(
+            base,
+            headers={"X-Auth-Login": login, "X-Auth-Key": key},
+            params={
+                "action": "findByRegexp",
+                "id_only": "true" if req.id_only else "false",
+                "regexp": regex,  # requests URL-encodes this correctly
+            },
+            timeout=timeout,
+            verify=verify_tls,
+        )
+        resp.raise_for_status()
+        results = _normalize_panda(resp.json())
+        return {"regex": regex, "count": len(results), "results": results}
+
+    return _cached(f"brand-abuse:{req.id_only}:{regex}", lambda: _run(_produce))

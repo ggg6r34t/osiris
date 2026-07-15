@@ -1,4 +1,5 @@
 import type {
+  BrandAbuseResponse,
   CheckResult,
   CloneDetectResult,
   CustomPlatformMap,
@@ -172,5 +173,15 @@ export function deepSearch(
   return jsonFetch<DeepSearchResponse>("/api/deep-search", {
     method: "POST",
     body: JSON.stringify({ target, score }),
+  });
+}
+
+export function brandAbuse(
+  regex: string,
+  idOnly: boolean,
+): Promise<BrandAbuseResponse> {
+  return jsonFetch<BrandAbuseResponse>("/api/brand-abuse", {
+    method: "POST",
+    body: JSON.stringify({ regex, id_only: idOnly }),
   });
 }

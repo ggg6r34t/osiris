@@ -16,6 +16,14 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
+# Load local secrets/config if present (gitignored) — e.g. OSIRIS_PANDA_* keys.
+if [ -f "$ROOT/.env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . "$ROOT/.env"
+  set +a
+fi
+
 BACKEND_PORT="${OSIRIS_BACKEND_PORT:-8000}"
 FRONTEND_PORT="${OSIRIS_FRONTEND_PORT:-3000}"
 

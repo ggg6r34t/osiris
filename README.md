@@ -206,9 +206,10 @@ into three tabs:
   "reachable only" filter), copy, and CSV/JSON/TXT export.
 - **Domain Tools** — the domain-intelligence modes: **Enrich** (WHOIS/DNS/hosting/SSL/favicon/threat-intel with a
   computed risk score), **Domain Match** (certificate-transparency lookalikes), **DNSTwist** (permutation scan),
-  **Clone Detect** (byte-identical typosquat clones), **Text Clone** and **Phishing Dorks** (dork-link builders),
-  and **Deep Search** (all of the above combined). These make outbound network calls and can be slow; results are
-  cached in-process for ~1 hour so re-querying the same domain is instant.
+  **Clone Detect** (byte-identical typosquat clones), **Brand Abuse (regex)** (regex search over the internal Panda
+  dataset), **Text Clone** and **Phishing Dorks** (dork-link builders), and **Deep Search** (all of the above
+  combined). These make outbound network calls and can be slow; results are cached in-process for ~1 hour so
+  re-querying is instant.
 - **Custom Platforms** — add/list/remove user platforms (persisted to `custom_platforms.json`).
 - **Settings** — User-Agent, request timeout, rate limit, HTTP(S) proxy, Tor, and TLS verification.
 
@@ -239,6 +240,14 @@ cd web && npm install && npm run dev
 
 By default the frontend calls the API at `http://localhost:8000`; override with `NEXT_PUBLIC_API_BASE_URL`
 (see `web/.env.local.example`).
+
+### Backend configuration (optional)
+
+Copy `.env.example` to `.env` (gitignored) and fill in what you need — `run.sh` loads it automatically:
+
+- **Brand Abuse (regex) tool** requires the internal Panda API (VPN): `OSIRIS_PANDA_URL`, `OSIRIS_PANDA_LOGIN`,
+  `OSIRIS_PANDA_KEY`. Without them the tool returns a clear "not configured" message.
+- **Enrichment** API keys (optional, degrade gracefully): `ABUSEIPDB_API_KEY`, `SECURITYTRAILS_API_KEY`, `IPINFO_TOKEN`.
 
 ### Tests
 

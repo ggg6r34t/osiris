@@ -9,8 +9,11 @@ from fastapi import HTTPException
 from osiris.api import (
     CheckRequest,
     CustomPlatformRequest,
+    RegexRequest,
     SearchRequest,
     _cached,
+    _normalize_panda,
+    api_brand_abuse,
     check,
     create_custom_platform,
     merged_templates,
@@ -158,6 +161,43 @@ def test_cache_memoizes_producer():
     second = _cached(key, producer)
     assert first == second == 1
     assert calls["n"] == 1  # producer invoked only once
+
+
+def test_panda_normalization_extracts_domains():
+    payload = {
+        "data": {
+            "k1": {"_id": "A1", "domain": "evil-rihotel.com"},
+            "k2": {"_id": "A2", "note": "spotted at rl1uhotel.net today"},
+            "k3": {"_id": "A3"},  # no resolvable domain
+        }
+    }
+    res = _normalize_panda(payload)
+    by_id = {r["id"]: r for r in res}
+    assert by_id["A1"]["url"] == "http://evil-rihotel.com"
+    assert by_id["A2"]["url"] == "http://rl1uhotel.net"
+    assert by_id["A3"]["url"] is None
+    assert len(res) == 3
+
+
+def test_panda_normalization_handles_list_and_full_urls_and_empty():
+    assert _normalize_panda({}) == []
+    res = _normalize_panda({"data": [{"_id": "X", "url": "https://bad.example/login"}]})
+    assert res[0]["url"] == "https://bad.example/login"  # already a URL, not re-prefixed
+
+
+def test_brand_abuse_requires_config(monkeypatch):
+    # With no Panda config, the endpoint returns 503 rather than crashing.
+    for var in ("OSIRIS_PANDA_URL", "OSIRIS_PANDA_LOGIN", "OSIRIS_PANDA_KEY"):
+        monkeypatch.delenv(var, raising=False)
+    with pytest.raises(HTTPException) as exc:
+        api_brand_abuse(RegexRequest(regex=".*evil.*"))
+    assert exc.value.status_code == 503
+
+
+def test_brand_abuse_empty_regex_422():
+    with pytest.raises(HTTPException) as exc:
+        api_brand_abuse(RegexRequest(regex="   "))
+    assert exc.value.status_code == 422
 
 
 def test_abuseipdb_contributes_to_risk_score():

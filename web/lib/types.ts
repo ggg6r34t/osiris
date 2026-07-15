@@ -114,6 +114,19 @@ export type CloneDetectResult = {
   clones: string[];
 };
 
+export type BrandAbuseMatch = {
+  id: string;
+  domain: string | null;
+  url: string | null;
+  raw: Record<string, unknown> | null;
+};
+
+export type BrandAbuseResponse = {
+  regex: string;
+  count: number;
+  results: BrandAbuseMatch[];
+};
+
 export type DeepSearchResponse = {
   target: string;
   count: number;

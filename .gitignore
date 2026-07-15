@@ -19,7 +19,9 @@ pip-wheel-metadata/
 venv/
 ENV/
 .env/
+.env
 .env.*
+!.env.example
 
 # Testing / coverage
 .pytest_cache/

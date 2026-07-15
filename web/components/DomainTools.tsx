@@ -6,6 +6,7 @@ import DomainMatchView from "./domain/DomainMatchView";
 import DnstwistView from "./domain/DnstwistView";
 import CloneDetectView from "./domain/CloneDetectView";
 import DeepSearchView from "./domain/DeepSearchView";
+import BrandAbuseView from "./domain/BrandAbuseView";
 import { PhishingDorksView, TextCloneView } from "./domain/LinkToolView";
 
 type ToolKey =
@@ -13,6 +14,7 @@ type ToolKey =
   | "domain-match"
   | "dnstwist"
   | "clone-detect"
+  | "brand-abuse"
   | "text-clone"
   | "phishing-dorks"
   | "deep-search";
@@ -22,6 +24,7 @@ const TOOLS: { key: ToolKey; label: string; blurb: string }[] = [
   { key: "domain-match", label: "Domain Match", blurb: "Registered lookalikes" },
   { key: "dnstwist", label: "DNSTwist", blurb: "Permutation scan" },
   { key: "clone-detect", label: "Clone Detect", blurb: "Byte-identical clones" },
+  { key: "brand-abuse", label: "Brand Abuse (regex)", blurb: "Panda regex dataset search" },
   { key: "text-clone", label: "Text Clone", blurb: "Copycat text dorks" },
   { key: "phishing-dorks", label: "Phishing Dorks", blurb: "Keyword dorks" },
   { key: "deep-search", label: "Deep Search", blurb: "Everything combined" },
@@ -56,6 +59,7 @@ export default function DomainTools() {
       {tool === "domain-match" && <DomainMatchView />}
       {tool === "dnstwist" && <DnstwistView />}
       {tool === "clone-detect" && <CloneDetectView />}
+      {tool === "brand-abuse" && <BrandAbuseView />}
       {tool === "text-clone" && <TextCloneView />}
       {tool === "phishing-dorks" && <PhishingDorksView />}
       {tool === "deep-search" && <DeepSearchView />}
