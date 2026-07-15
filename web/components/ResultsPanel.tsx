@@ -322,7 +322,7 @@ export default function ResultsPanel({ results, target }: ResultsPanelProps) {
           <button
             type="button"
             onClick={openSelected}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-canvas transition-colors hover:bg-accent-strong"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-accent-strong"
           >
             <ExternalIcon className="h-3.5 w-3.5" />
             Open selected

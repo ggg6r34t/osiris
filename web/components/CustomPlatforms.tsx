@@ -133,7 +133,7 @@ export default function CustomPlatforms({ onChange }: CustomPlatformsProps) {
         <button
           type="submit"
           disabled={busy}
-          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-canvas transition-colors hover:bg-accent-strong disabled:opacity-40"
+          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-40"
         >
           <PlusIcon className="h-4 w-4" />
           Add platform

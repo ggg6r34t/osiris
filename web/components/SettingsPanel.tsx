@@ -57,8 +57,8 @@ export default function SettingsPanel() {
     <div className="animate-fade-in max-w-2xl rounded-xl border border-line bg-surface/70 p-5">
       <h2 className="text-base font-medium text-fg">Network settings</h2>
       <p className="mt-1 text-sm text-fg-muted">
-        Applied to link-checking and (in Phase 2) domain-intel requests. Stored
-        on the running API instance.
+        Applied to link-checking and domain-intel requests. Stored on the
+        running API instance.
       </p>
 
       <div className="mt-5 flex flex-col gap-4">
@@ -153,7 +153,7 @@ export default function SettingsPanel() {
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-canvas transition-colors hover:bg-accent-strong disabled:opacity-40"
+          className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-40"
         >
           {saving ? "Saving…" : "Save settings"}
         </button>

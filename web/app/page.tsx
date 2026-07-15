@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Header from "@/components/Header";
-import Tabs, { type TabKey } from "@/components/Tabs";
+import Sidebar, { type TabKey } from "@/components/Sidebar";
 import SearchPanel from "@/components/SearchPanel";
 import ResultsPanel from "@/components/ResultsPanel";
 import EmptyState from "@/components/EmptyState";
@@ -22,6 +22,32 @@ import type {
   SearchOptions,
   SearchResult,
 } from "@/lib/types";
+
+const NAV_ITEMS = [
+  { key: "search" as const, label: "Search", icon: <SearchIcon className="h-5 w-5" /> },
+  { key: "domain" as const, label: "Domain Tools", icon: <BoltIcon className="h-5 w-5" /> },
+  { key: "custom" as const, label: "Custom Platforms", icon: <LayersIcon className="h-5 w-5" /> },
+  { key: "settings" as const, label: "Settings", icon: <SlidersIcon className="h-5 w-5" /> },
+];
+
+const SECTIONS: Record<TabKey, { title: string; desc: string }> = {
+  search: {
+    title: "Search",
+    desc: "Generate OSINT search links across categorized platforms.",
+  },
+  domain: {
+    title: "Domain Tools",
+    desc: "Enrichment, lookalikes, clones, brand-abuse and combined scans.",
+  },
+  custom: {
+    title: "Custom Platforms",
+    desc: "Add and manage your own search platforms.",
+  },
+  settings: {
+    title: "Settings",
+    desc: "Network and request configuration for the API.",
+  },
+};
 
 function ResultsSkeleton() {
   return (
@@ -93,72 +119,67 @@ export default function Home() {
     }
   }
 
+  const section = SECTIONS[tab];
+
   return (
-    <>
+    <div className="flex h-screen flex-col">
       <Header />
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-5 py-8">
-        <Tabs
-          active={tab}
-          onChange={setTab}
-          tabs={[
-            { key: "search", label: "Search", icon: <SearchIcon className="h-4 w-4" /> },
-            { key: "domain", label: "Domain Tools", icon: <BoltIcon className="h-4 w-4" /> },
-            { key: "custom", label: "Custom Platforms", icon: <LayersIcon className="h-4 w-4" /> },
-            { key: "settings", label: "Settings", icon: <SlidersIcon className="h-4 w-4" /> },
-          ]}
-        />
+      <div className="flex flex-1 overflow-hidden">
+        <Sidebar items={NAV_ITEMS} active={tab} onChange={setTab} />
 
-        {tab === "search" && (
-          <>
-            <SearchPanel
-              data={platformsData}
-              loading={loading}
-              onSubmit={handleSubmit}
-            />
+        <main className="flex-1 overflow-y-auto">
+          <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-7">
+            <div className="border-b border-line-soft pb-4">
+              <h1 className="text-xl font-semibold text-fg">{section.title}</h1>
+              <p className="mt-1 text-sm text-fg-muted">{section.desc}</p>
+            </div>
 
-            {error && (
-              <div
-                role="alert"
-                className="animate-fade-in flex items-start gap-3 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
-              >
-                <AlertIcon className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>{error}</span>
+            {tab === "search" && (
+              <div className="flex flex-col gap-6">
+                <SearchPanel
+                  data={platformsData}
+                  loading={loading}
+                  onSubmit={handleSubmit}
+                />
+
+                {error && (
+                  <div
+                    role="alert"
+                    className="animate-fade-in flex items-start gap-3 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
+                  >
+                    <AlertIcon className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                {loading ? (
+                  <ResultsSkeleton />
+                ) : results.length > 0 ? (
+                  <ResultsPanel
+                    key={resultsKey}
+                    results={results}
+                    target={displayTarget}
+                  />
+                ) : hasSearched && !error ? (
+                  <div className="rounded-xl border border-line bg-surface/40 px-4 py-12 text-center text-sm text-fg-muted">
+                    No links generated for{" "}
+                    <span className="font-mono text-fg">{displayTarget}</span>.
+                    Try a different platform selection.
+                  </div>
+                ) : (
+                  !error && <EmptyState />
+                )}
               </div>
             )}
 
-            {loading ? (
-              <ResultsSkeleton />
-            ) : results.length > 0 ? (
-              <ResultsPanel
-                key={resultsKey}
-                results={results}
-                target={displayTarget}
-              />
-            ) : hasSearched && !error ? (
-              <div className="rounded-xl border border-line bg-surface/40 px-4 py-12 text-center text-sm text-fg-muted">
-                No links generated for{" "}
-                <span className="font-mono text-fg">{displayTarget}</span>. Try a
-                different platform selection.
-              </div>
-            ) : (
-              !error && <EmptyState />
-            )}
-          </>
-        )}
+            {tab === "domain" && <DomainTools />}
 
-        {tab === "domain" && <DomainTools />}
+            {tab === "custom" && <CustomPlatforms onChange={loadPlatforms} />}
 
-        {tab === "custom" && <CustomPlatforms onChange={loadPlatforms} />}
-
-        {tab === "settings" && <SettingsPanel />}
-      </main>
-
-      <footer className="mx-auto w-full max-w-5xl px-5 py-6">
-        <p className="border-t border-line-soft pt-4 text-center text-xs text-fg-faint">
-          Osiris generates OSINT search links · results open in your browser ·
-          nothing is crawled server-side
-        </p>
-      </footer>
-    </>
+            {tab === "settings" && <SettingsPanel />}
+          </div>
+        </main>
+      </div>
+    </div>
   );
 }

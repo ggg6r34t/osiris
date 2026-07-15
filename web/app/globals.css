@@ -1,25 +1,26 @@
 @import "tailwindcss";
 
-/* ---- Osiris dark-console design tokens ---- */
+/* ---- Osiris design tokens — Group-IB navy/blue design language ---- */
 @theme {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  --color-canvas: #0a0b0d;
-  --color-surface: #101216;
-  --color-surface-2: #16191e;
-  --color-line: #262b33;
-  --color-line-soft: #1b1f25;
+  --color-canvas: #0d1524;      /* content background */
+  --color-rail: #0a0f1c;        /* sidebar + top bar */
+  --color-surface: #141d31;     /* cards / panels */
+  --color-surface-2: #1b2540;   /* elevated (dropdowns, inputs on cards) */
+  --color-line: #27324c;        /* borders */
+  --color-line-soft: #1c2439;   /* subtle dividers */
 
-  --color-fg: #e6e8eb;
-  --color-fg-muted: #8a919c;
-  --color-fg-faint: #5b616b;
+  --color-fg: #eef1f7;
+  --color-fg-muted: #94a1ba;
+  --color-fg-faint: #5e6b84;
 
-  --color-accent: #22d3ee;
-  --color-accent-strong: #06b6d4;
-  --color-accent-dim: #0e7490;
-  --color-live: #34d399;
-  --color-danger: #f87171;
+  --color-accent: #3b7dff;      /* Group-IB blue */
+  --color-accent-strong: #2f6bff;
+  --color-accent-dim: #21406f;
+  --color-live: #2ecc9a;
+  --color-danger: #f26d6d;
 }
 
 html {
@@ -30,20 +31,20 @@ body {
   background-color: var(--color-canvas);
   color: var(--color-fg);
   font-family: var(--font-sans), system-ui, sans-serif;
-  background-image:
-    radial-gradient(60rem 40rem at 50% -10rem, rgba(34, 211, 238, 0.06), transparent 70%),
-    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-  background-size: 100% 100%, 44px 44px, 44px 44px;
+  background-image: radial-gradient(
+    70rem 44rem at 50% -16rem,
+    rgba(59, 125, 255, 0.06),
+    transparent 70%
+  );
   background-attachment: fixed;
 }
 
 ::selection {
-  background: rgba(34, 211, 238, 0.25);
+  background: rgba(59, 125, 255, 0.28);
   color: #fff;
 }
 
-/* Slim console-style scrollbars */
+/* Slim scrollbars */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--color-line) transparent;
@@ -59,7 +60,7 @@ body {
   background-clip: content-box;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: #333a44;
+  background: #33405e;
   background-clip: content-box;
 }
 

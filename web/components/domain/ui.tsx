@@ -71,11 +71,11 @@ export function RunBar({
           type="button"
           onClick={onRun}
           disabled={loading || !value.trim()}
-          className="inline-flex h-[46px] items-center justify-center gap-2 self-start rounded-lg bg-accent px-5 text-sm font-semibold text-canvas transition-all hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-[46px] items-center justify-center gap-2 self-start rounded-lg bg-accent px-5 text-sm font-semibold text-white transition-all hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
         >
           {loading ? (
             <>
-              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-canvas/40 border-t-canvas" />
+              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/50 border-t-white" />
               Running
             </>
           ) : (
