@@ -19,11 +19,28 @@ import type {
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
+const REQUEST_TIMEOUT_MS = 240_000; // hard client-side cap so the UI never hangs
+
 async function jsonFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      ...init,
+    });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw new Error("Request timed out — the upstream sources were too slow.");
+    }
+    throw new Error(
+      "Couldn't reach the Osiris API. Is the backend running on localhost:8000?",
+    );
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     let detail = "";
     try {

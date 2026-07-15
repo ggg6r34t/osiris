@@ -94,7 +94,14 @@ def fetch_otx_domains(domain):
         print(f"[!] AlienVault fallback failed: {e}")
         return []
 
-def find_similar_domains(domain):
+def find_similar_domains(domain, max_whois=25, max_matches=50):
+    """Find registered lookalike domains via cert-transparency + typo variants.
+
+    max_whois bounds the number of (slow, un-timed) WHOIS lookups. Pass 0 to skip
+    WHOIS entirely — callers that only need the matched domains (enrich,
+    deep-search) use this so the lookup stays fast and can't hang for minutes.
+    max_matches bounds total results so a large brand can't return thousands.
+    """
     print(f"🔍 Finding similar/typosquatted domains for: {domain}")
 
     variants = generate_typosquatting_domains(domain)
@@ -104,22 +111,19 @@ def find_similar_domains(domain):
     cert_domains = list(dict.fromkeys(fetch_crtsh_domains(domain)))
     print(f"→ Found {len(cert_domains)} domains via certificates")
 
-    # Cap the number of (blocking, potentially slow) WHOIS lookups so a brand with
-    # thousands of certificate subdomains can't make this hang for many minutes.
-    MAX_WHOIS_LOOKUPS = 25
-
     suspicious = []
     for cert_domain in cert_domains:
-        if len(suspicious) >= MAX_WHOIS_LOOKUPS:
-            print(f"→ Reached WHOIS lookup cap ({MAX_WHOIS_LOOKUPS}); stopping.")
+        if len(suspicious) >= max_matches:
             break
         for variant in variants:
             if variant in cert_domain:
-                whois_info = get_whois_info(cert_domain)
+                whois_info = (
+                    get_whois_info(cert_domain) if len(suspicious) < max_whois else {}
+                )
                 suspicious.append({
                     "domain": cert_domain,
                     "matched_variant": variant,
-                    "whois": whois_info
+                    "whois": whois_info,
                 })
                 break
 

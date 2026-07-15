@@ -3,6 +3,7 @@ import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturesTimeout
 from typing import Callable
 
 import requests
@@ -71,6 +72,25 @@ def _cached(key: str, producer: Callable):
     value = producer()
     _CACHE[key] = (now, value)
     return value
+
+
+def _bounded(fn: Callable, timeout: int):
+    """Run fn with a hard wall-clock timeout so a slow/hanging upstream (WHOIS,
+    RDAP, cert logs, blocklist downloads) can never spin forever. On timeout we
+    return 504 and orphan the worker thread (can't kill it) without blocking."""
+    executor = ThreadPoolExecutor(max_workers=1)
+    future = executor.submit(fn)
+    try:
+        result = future.result(timeout=timeout)
+        executor.shutdown(wait=False)
+        return result
+    except FuturesTimeout:
+        executor.shutdown(wait=False, cancel_futures=True)
+        raise HTTPException(
+            status_code=504,
+            detail=f"Timed out after {timeout}s — upstream data sources were too "
+            "slow. Try again (results cache) or narrow the query.",
+        )
 
 
 def _env_proxies() -> dict | None:
@@ -407,20 +427,29 @@ def _valid_domain(domain: str) -> str:
 @app.post("/api/enrich")
 def api_enrich(req: DomainRequest):
     domain = _valid_domain(req.domain)
-    return _cached(f"enrich:{domain}", lambda: _run(enrich, f"http://{domain}"))
+    return _cached(
+        f"enrich:{domain}",
+        lambda: _bounded(lambda: _run(enrich, f"http://{domain}"), 75),
+    )
 
 
 @app.post("/api/domain-match")
 def api_domain_match(req: DomainRequest):
     domain = _valid_domain(req.domain)
-    matches = _cached(f"domain-match:{domain}", lambda: _run(find_similar_domains, domain))
+    matches = _cached(
+        f"domain-match:{domain}",
+        lambda: _bounded(lambda: _run(find_similar_domains, domain), 90),
+    )
     return {"domain": domain, "matches": matches}
 
 
 @app.post("/api/dnstwist")
 def api_dnstwist(req: DomainRequest):
     domain = _valid_domain(req.domain)
-    results = _cached(f"dnstwist:{domain}", lambda: _run(run_dnstwist, domain) or [])
+    results = _cached(
+        f"dnstwist:{domain}",
+        lambda: _bounded(lambda: _run(run_dnstwist, domain) or [], 210),
+    )
     return {"domain": domain, "results": results}
 
 
@@ -433,7 +462,7 @@ def api_clone_detect(req: DomainRequest):
         clones = _run(detect_clones, domain, variants)
         return {"domain": domain, "variants_checked": len(variants), "clones": clones}
 
-    return _cached(f"clone-detect:{domain}", _produce)
+    return _cached(f"clone-detect:{domain}", lambda: _bounded(_produce, 120))
 
 
 @app.post("/api/text-clone")
@@ -469,7 +498,7 @@ def api_deep_search(req: DeepSearchRequest):
             base = normalize_domain(target)
             results["enrichment"] = _run(enrich, base, is_url=True)
 
-            typo = _run(find_similar_domains, base)
+            typo = _run(find_similar_domains, base, max_whois=0)
             results["typo_domains"] = typo
             links.extend(
                 {"platform": "Lookalike Domain", "category": "domain", "url": f"http://{d['domain']}"}
@@ -511,7 +540,7 @@ def api_deep_search(req: DeepSearchRequest):
 
         return {"target": target, "results": results, "count": len(links), "links": links}
 
-    return _cached(f"deep-search:{target}:{req.score}", _produce)
+    return _cached(f"deep-search:{target}:{req.score}", lambda: _bounded(_produce, 200))
 
 
 # --------------------------------------------------------------------------- #
@@ -632,4 +661,7 @@ def api_brand_abuse(req: RegexRequest):
         results = _normalize_panda(resp.json())
         return {"regex": regex, "count": len(results), "results": results}
 
-    return _cached(f"brand-abuse:{req.id_only}:{regex}", lambda: _run(_produce))
+    return _cached(
+        f"brand-abuse:{req.id_only}:{regex}",
+        lambda: _bounded(lambda: _run(_produce), 60),
+    )

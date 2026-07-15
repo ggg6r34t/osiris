@@ -152,6 +152,13 @@ def test_ip_in_blocklist_cidr_semantics():
     assert ip_in_blocklist("9.9.9.9", {"1.2.0.0/16"}) is False
 
 
+def test_ip_in_blocklist_ignores_comment_and_blank_lines():
+    # Spamhaus DROP uses ';' comment lines — these must not crash (regression).
+    blocklist = {"; Spamhaus DROP List 2024", "", "   ", "1.2.0.0/16"}
+    assert ip_in_blocklist("1.2.3.4", blocklist) is True
+    assert ip_in_blocklist("8.8.8.8", {"; comment only", "", "   "}) is False
+
+
 def test_cache_memoizes_producer():
     calls = {"n": 0}
 

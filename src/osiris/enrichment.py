@@ -348,8 +348,13 @@ def load_ip_blocklist(url):
     try:
         r = http_get(url)
         if r.ok:
-            return {line.strip() for line in r.text.splitlines() if line and not line.startswith("#")}
-    except:
+            # Skip blank lines and comments (# and ; — Spamhaus DROP uses ;).
+            return {
+                s
+                for line in r.text.splitlines()
+                if (s := line.strip()) and not s.startswith(("#", ";"))
+            }
+    except Exception:
         return set()
     return set()
 
@@ -359,12 +364,12 @@ def ip_in_blocklist(ip, blocklist):
     except ValueError:
         return False
     for entry in blocklist:
-        # Blocklist lines may carry trailing comments (e.g. "1.2.0.0/16 ; SBL123").
-        token = entry.split(";")[0].split()[0] if entry else ""
-        if not token:
+        # Take the CIDR token before any trailing comment; skip comment/blank lines.
+        parts = entry.split(";")[0].split()
+        if not parts:
             continue
         try:
-            if addr in ipaddress.ip_network(token, strict=False):
+            if addr in ipaddress.ip_network(parts[0], strict=False):
                 return True
         except ValueError:
             continue
@@ -440,7 +445,8 @@ def enrich(target: str, is_url: bool = False):
     abuse_data = check_abuseipdb(ip) if ip else {}
     threat_data = {"abuseipdb": abuse_data}
     ssl_cert = get_ssl_cert_info(domain, verbose=True)
-    lookalikes = find_similar_domains(domain)
+    # Skip per-domain WHOIS here (slow, un-timed) — enrich only lists the matches.
+    lookalikes = find_similar_domains(domain, max_whois=0)
 
     enrichment_data = {
         "target": target,
