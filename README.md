@@ -207,7 +207,8 @@ into three tabs:
 - **Domain Tools** — the domain-intelligence modes: **Enrich** (WHOIS/DNS/hosting/SSL/favicon/threat-intel with a
   computed risk score), **Domain Match** (certificate-transparency lookalikes), **DNSTwist** (permutation scan),
   **Clone Detect** (byte-identical typosquat clones), **Brand Abuse (regex)** (regex search over the internal Panda
-  dataset), **Text Clone** and **Phishing Dorks** (dork-link builders), and **Deep Search** (all of the above
+  dataset, with a built-in **Generate regex from a brand** helper that turns a brand/domain into a
+  homoglyph/typosquat pattern), **Text Clone** and **Phishing Dorks** (dork-link builders), and **Deep Search** (all of the above
   combined). These make outbound network calls and can be slow; results are cached in-process for ~1 hour so
   re-querying is instant.
 - **Custom Platforms** — add/list/remove user platforms (persisted to `custom_platforms.json`).

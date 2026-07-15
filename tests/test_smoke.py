@@ -3,6 +3,8 @@
 These exercise pure logic and the API handler functions directly (no network,
 no live server), so they run fast and deterministically. Run with:  pytest
 """
+import re
+
 import pytest
 from fastapi import HTTPException
 
@@ -20,6 +22,7 @@ from osiris.api import (
     search,
 )
 from osiris.enrichment import calculate_risk_score, ip_in_blocklist
+from osiris.regex_generator import brand_label, generate_brand_regex
 from osiris.input_handler import parse_input
 from osiris.run_phishing_dorks import run_phishing_dorks
 from osiris.search_links import generate_search_links
@@ -192,6 +195,41 @@ def test_brand_abuse_requires_config(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         api_brand_abuse(RegexRequest(regex=".*evil.*"))
     assert exc.value.status_code == 503
+
+
+def test_generate_regex_reproduces_reference_pattern():
+    # Entering the brand as words reproduces the hand-written reference regex.
+    expected = r".*rr?(i|l){1,}uu?(\.|-?)?hh?(o|0){1,}tt?(e|3){1,}(l|i){1,}.*"
+    assert generate_brand_regex("riu hotel", "balanced") == expected
+
+
+def test_generate_regex_strips_tld_and_compiles():
+    rx = generate_brand_regex("riuhotel.com", "balanced")
+    assert rx.startswith(".*") and rx.endswith(".*")
+    re.compile(rx)  # must be a valid regex
+    # domain input drops the TLD → single word, no internal separator group
+    assert r"(\.|-?)?" not in rx
+
+
+def test_generate_regex_levels_differ_and_compile():
+    cons = generate_brand_regex("riuhotel", "conservative")
+    bal = generate_brand_regex("riuhotel", "balanced")
+    agg = generate_brand_regex("riuhotel", "aggressive")
+    for rx in (cons, bal, agg):
+        re.compile(rx)
+    assert cons != bal != agg
+    assert "{1,}" in bal and "+" in agg
+
+
+def test_brand_label_variants():
+    assert brand_label("riuhotel.com") == "riuhotel"
+    assert brand_label("www.brand.co.uk") == "brand"
+    assert brand_label("https://brand.com/path") == "brand"
+    assert brand_label("riu hotel") == "riu hotel"
+
+
+def test_generate_regex_empty_returns_blank():
+    assert generate_brand_regex("   ", "balanced") == ""
 
 
 def test_brand_abuse_empty_regex_422():

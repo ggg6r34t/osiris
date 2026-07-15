@@ -23,6 +23,8 @@ from osiris.platform_functions import (
     load_custom_platforms,
     remove_custom_platform,
 )
+from osiris.regex_generator import LEVELS as REGEX_LEVELS
+from osiris.regex_generator import brand_label, generate_brand_regex
 from osiris.run_phishing_dorks import run_phishing_dorks
 from osiris.search_links import generate_search_links
 from osiris.text_clone_search import text_clone_search
@@ -521,6 +523,25 @@ def api_deep_search(req: DeepSearchRequest):
 class RegexRequest(BaseModel):
     regex: str
     id_only: bool = False
+
+
+class RegexGenRequest(BaseModel):
+    value: str
+    level: str = "balanced"
+
+
+@app.post("/api/generate-regex")
+def api_generate_regex(req: RegexGenRequest):
+    value = (req.value or "").strip()
+    if not value:
+        raise HTTPException(status_code=422, detail="Provide a brand or domain.")
+    level = req.level if req.level in REGEX_LEVELS else "balanced"
+    regex = generate_brand_regex(value, level)
+    if not regex:
+        raise HTTPException(status_code=422, detail="Couldn't derive a brand from that input.")
+    label = brand_label(value)
+    brand_len = len(re.sub(r"[\s._-]", "", label))
+    return {"regex": regex, "level": level, "brand": label, "short": brand_len < 4}
 
 
 _DOMAIN_FIELD_CANDIDATES = ("domain", "url", "host", "hostname", "fqdn", "site", "name")

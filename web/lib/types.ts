@@ -127,6 +127,15 @@ export type BrandAbuseResponse = {
   results: BrandAbuseMatch[];
 };
 
+export type RegexLevel = "conservative" | "balanced" | "aggressive";
+
+export type GenerateRegexResponse = {
+  regex: string;
+  level: RegexLevel;
+  brand: string;
+  short: boolean;
+};
+
 export type DeepSearchResponse = {
   target: string;
   count: number;

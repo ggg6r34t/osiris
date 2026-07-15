@@ -1,5 +1,7 @@
 import type {
   BrandAbuseResponse,
+  GenerateRegexResponse,
+  RegexLevel,
   CheckResult,
   CloneDetectResult,
   CustomPlatformMap,
@@ -183,5 +185,15 @@ export function brandAbuse(
   return jsonFetch<BrandAbuseResponse>("/api/brand-abuse", {
     method: "POST",
     body: JSON.stringify({ regex, id_only: idOnly }),
+  });
+}
+
+export function generateRegex(
+  value: string,
+  level: RegexLevel,
+): Promise<GenerateRegexResponse> {
+  return jsonFetch<GenerateRegexResponse>("/api/generate-regex", {
+    method: "POST",
+    body: JSON.stringify({ value, level }),
   });
 }
