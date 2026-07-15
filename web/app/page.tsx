@@ -52,15 +52,15 @@ const SECTIONS: Record<TabKey, { title: string; desc: string }> = {
 function ResultsSkeleton() {
   return (
     <div className="animate-fade-in flex flex-col gap-3">
-      <div className="h-6 w-64 animate-pulse rounded bg-line-soft" />
-      <div className="overflow-hidden rounded-xl border border-line bg-surface/60">
-        {Array.from({ length: 6 }).map((_, i) => (
+      <div className="shimmer h-6 w-64 rounded-md" />
+      <div className="overflow-hidden rounded-2xl border border-line bg-surface/60 shadow-card">
+        {Array.from({ length: 7 }).map((_, i) => (
           <div
             key={i}
-            className="flex items-center gap-3 border-b border-line-soft px-3 py-2.5 last:border-b-0"
+            className="flex items-center gap-3 border-b border-line-soft px-4 py-2.5 last:border-b-0"
           >
-            <div className="h-4 w-32 animate-pulse rounded bg-line-soft" />
-            <div className="h-3 flex-1 animate-pulse rounded bg-line-soft/70" />
+            <div className="shimmer h-4 w-32 rounded" />
+            <div className="shimmer h-3 flex-1 rounded" />
           </div>
         ))}
       </div>

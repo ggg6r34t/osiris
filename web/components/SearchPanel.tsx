@@ -137,7 +137,7 @@ export default function SearchPanel({
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-xl border border-line bg-surface/70 p-5 backdrop-blur"
+      className="rounded-2xl border border-line bg-surface/70 p-6 shadow-card backdrop-blur"
     >
       <div className="mb-1.5 flex items-center justify-between">
         <label className="font-mono text-[11px] uppercase tracking-wider text-fg-muted">
@@ -179,7 +179,7 @@ export default function SearchPanel({
         <button
           type="submit"
           disabled={submitDisabled}
-          className="inline-flex h-[46px] items-center justify-center gap-2 self-start rounded-lg bg-accent px-5 text-sm font-semibold text-white transition-all hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-[46px] items-center justify-center gap-2 self-start rounded-lg bg-accent-gradient shadow-glow px-5 text-sm font-semibold text-white transition-all hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
         >
           {loading ? (
             <>

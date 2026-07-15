@@ -1,26 +1,31 @@
 @import "tailwindcss";
 
-/* ---- Osiris design tokens — Group-IB navy/blue design language ---- */
+/* ---- Osiris design tokens — Group-IB navy/blue foundation, elevated ---- */
 @theme {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  --color-canvas: #0d1524;      /* content background */
-  --color-rail: #0a0f1c;        /* sidebar + top bar */
-  --color-surface: #141d31;     /* cards / panels */
-  --color-surface-2: #1b2540;   /* elevated (dropdowns, inputs on cards) */
-  --color-line: #27324c;        /* borders */
-  --color-line-soft: #1c2439;   /* subtle dividers */
+  --color-canvas: #0a1120;      /* content background (deep navy) */
+  --color-rail: #070c17;        /* sidebar + top bar */
+  --color-surface: #111a2e;     /* cards / panels */
+  --color-surface-2: #172239;   /* elevated (dropdowns, inputs on cards) */
+  --color-line: #253148;        /* borders */
+  --color-line-soft: #1a2337;   /* subtle dividers */
 
-  --color-fg: #eef1f7;
-  --color-fg-muted: #94a1ba;
-  --color-fg-faint: #5e6b84;
+  --color-fg: #eff2f8;
+  --color-fg-muted: #97a4bd;
+  --color-fg-faint: #5c6a85;
 
-  --color-accent: #3b7dff;      /* Group-IB blue */
+  --color-accent: #3d82ff;      /* Group-IB blue, refined */
   --color-accent-strong: #2f6bff;
-  --color-accent-dim: #21406f;
-  --color-live: #2ecc9a;
-  --color-danger: #f26d6d;
+  --color-accent-dim: #23446f;
+  --color-live: #2ed3a0;
+  --color-danger: #f2707a;
+
+  --shadow-card: 0 1px 0 0 rgba(255, 255, 255, 0.04) inset,
+    0 12px 32px -20px rgba(0, 0, 0, 0.75);
+  --shadow-elevated: 0 20px 48px -16px rgba(0, 0, 0, 0.7);
+  --shadow-glow: 0 8px 22px -8px rgba(61, 130, 255, 0.55);
 }
 
 html {
@@ -31,17 +36,25 @@ body {
   background-color: var(--color-canvas);
   color: var(--color-fg);
   font-family: var(--font-sans), system-ui, sans-serif;
-  background-image: radial-gradient(
-    70rem 44rem at 50% -16rem,
-    rgba(59, 125, 255, 0.06),
-    transparent 70%
-  );
+  -webkit-font-smoothing: antialiased;
+  /* Layered ambient aurora for depth — subtle, fixed. */
+  background-image:
+    radial-gradient(60rem 40rem at 12% -8rem, rgba(61, 130, 255, 0.1), transparent 60%),
+    radial-gradient(52rem 36rem at 100% 0%, rgba(120, 90, 255, 0.07), transparent 55%),
+    radial-gradient(60rem 50rem at 50% 120%, rgba(46, 211, 160, 0.05), transparent 60%);
   background-attachment: fixed;
 }
 
 ::selection {
-  background: rgba(59, 125, 255, 0.28);
+  background: rgba(61, 130, 255, 0.3);
   color: #fff;
+}
+
+/* Keyboard focus ring — accessibility + polish. */
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 70%, transparent);
+  outline-offset: 2px;
+  border-radius: 6px;
 }
 
 /* Slim scrollbars */
@@ -60,14 +73,27 @@ body {
   background-clip: content-box;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: #33405e;
+  background: #33415e;
   background-clip: content-box;
+}
+
+@layer components {
+  /* Reusable gradient primary surface for buttons. */
+  .bg-accent-gradient {
+    background-image: linear-gradient(180deg, #4d8bff 0%, #2f6bff 100%);
+  }
+  .bg-accent-gradient:hover {
+    background-image: linear-gradient(180deg, #5c96ff 0%, #3b78ff 100%);
+  }
+  .bg-accent-gradient:active {
+    background-image: linear-gradient(180deg, #3d7dff 0%, #2a62f0 100%);
+  }
 }
 
 @keyframes osiris-fade-in {
   from {
     opacity: 0;
-    transform: translateY(4px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -75,5 +101,30 @@ body {
   }
 }
 .animate-fade-in {
-  animation: osiris-fade-in 0.25s ease-out both;
+  animation: osiris-fade-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Shimmer for skeleton loaders. */
+@keyframes osiris-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+.shimmer {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-line-soft);
+}
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.06),
+    transparent
+  );
+  animation: osiris-shimmer 1.5s infinite;
 }

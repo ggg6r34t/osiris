@@ -51,10 +51,10 @@ export default function SettingsPanel() {
   }
 
   const field =
-    "rounded-md border border-line bg-canvas px-3 py-2 text-sm text-fg outline-none placeholder:text-fg-faint focus:border-accent/60";
+    "rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-fg outline-none transition-colors placeholder:text-fg-faint focus:border-accent focus:ring-2 focus:ring-accent/25";
 
   return (
-    <div className="animate-fade-in max-w-2xl rounded-xl border border-line bg-surface/70 p-5">
+    <div className="animate-fade-in max-w-2xl rounded-2xl border border-line bg-surface/70 p-6 shadow-card">
       <h2 className="text-base font-medium text-fg">Network settings</h2>
       <p className="mt-1 text-sm text-fg-muted">
         Applied to link-checking and domain-intel requests. Stored on the
@@ -153,7 +153,7 @@ export default function SettingsPanel() {
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-40"
+          className="inline-flex items-center gap-2 rounded-lg bg-accent-gradient shadow-glow px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-40"
         >
           {saving ? "Saving…" : "Save settings"}
         </button>

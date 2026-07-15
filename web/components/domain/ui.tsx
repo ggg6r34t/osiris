@@ -71,7 +71,7 @@ export function RunBar({
           type="button"
           onClick={onRun}
           disabled={loading || !value.trim()}
-          className="inline-flex h-[46px] items-center justify-center gap-2 self-start rounded-lg bg-accent px-5 text-sm font-semibold text-white transition-all hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-[46px] items-center justify-center gap-2 self-start rounded-lg bg-accent-gradient shadow-glow px-5 text-sm font-semibold text-white transition-all hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
         >
           {loading ? (
             <>
@@ -122,8 +122,8 @@ export function Card({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-line bg-surface/60">
-      <div className="flex items-center justify-between border-b border-line-soft px-4 py-2.5">
+    <div className="overflow-hidden rounded-2xl border border-line bg-surface/60 shadow-card">
+      <div className="flex items-center justify-between border-b border-line-soft bg-white/[0.015] px-4 py-2.5">
         <span className="font-mono text-[11px] uppercase tracking-wider text-accent">
           {title}
         </span>
@@ -159,24 +159,31 @@ export function RiskMeter({ score }: { score: number }) {
         ? "#fbbf24"
         : "var(--color-live)";
   return (
-    <div className="flex items-center gap-4 rounded-xl border border-line bg-surface/60 p-4">
+    <div className="flex items-center gap-5 rounded-2xl border border-line bg-surface/60 p-5 shadow-card">
       <div className="flex flex-col">
-        <span className="font-mono text-3xl font-semibold" style={{ color }}>
+        <span
+          className="font-mono text-4xl font-semibold tabular-nums leading-none"
+          style={{ color }}
+        >
           {score}
         </span>
-        <span className="text-[11px] uppercase tracking-wider text-fg-faint">
+        <span className="mt-1 text-[11px] uppercase tracking-wider text-fg-faint">
           risk / 100
         </span>
       </div>
       <div className="flex-1">
-        <div className="h-2 overflow-hidden rounded-full bg-line">
+        <div className="h-2.5 overflow-hidden rounded-full bg-canvas ring-1 ring-inset ring-line-soft">
           <div
-            className="h-full rounded-full transition-all"
-            style={{ width: `${Math.min(100, Math.max(0, score))}%`, background: color }}
+            className="h-full rounded-full transition-all duration-500"
+            style={{
+              width: `${Math.min(100, Math.max(0, score))}%`,
+              background: `linear-gradient(90deg, color-mix(in srgb, ${color} 55%, transparent), ${color})`,
+              boxShadow: `0 0 14px -2px ${color}`,
+            }}
           />
         </div>
         <span
-          className="mt-1.5 inline-block font-mono text-xs uppercase tracking-wider"
+          className="mt-2 inline-block font-mono text-xs uppercase tracking-wider"
           style={{ color }}
         >
           {level}

@@ -75,7 +75,9 @@ function StatusDot({ status }: { status?: CheckResult }) {
     <span
       title={status.ok ? `Reachable (${status.status})` : "Unreachable"}
       className={`h-2 w-2 shrink-0 rounded-full ${
-        status.ok ? "bg-live" : "bg-danger"
+        status.ok
+          ? "bg-live shadow-[0_0_8px_0_var(--color-live)]"
+          : "bg-danger shadow-[0_0_8px_0_var(--color-danger)]"
       }`}
     />
   );
@@ -95,7 +97,7 @@ function ResultRow({
   showTarget: boolean;
 }) {
   return (
-    <div className="group flex items-center gap-3 px-3 py-2 transition-colors hover:bg-white/[0.02]">
+    <div className="group flex items-center gap-3 px-4 py-2 transition-colors hover:bg-accent/[0.05]">
       <IndeterminateCheckbox
         checked={selected}
         indeterminate={false}
@@ -322,7 +324,7 @@ export default function ResultsPanel({ results, target }: ResultsPanelProps) {
           <button
             type="button"
             onClick={openSelected}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-accent-strong"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent-gradient shadow-glow px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-accent-strong"
           >
             <ExternalIcon className="h-3.5 w-3.5" />
             Open selected
@@ -369,7 +371,7 @@ export default function ResultsPanel({ results, target }: ResultsPanelProps) {
       )}
 
       {/* Results */}
-      <div className="overflow-hidden rounded-xl border border-line bg-surface/60">
+      <div className="overflow-hidden rounded-2xl border border-line bg-surface/60 shadow-card">
         {filtered.length === 0 ? (
           <div className="px-4 py-12 text-center text-sm text-fg-muted">
             No results match the current filter.
@@ -399,7 +401,7 @@ export default function ResultsPanel({ results, target }: ResultsPanelProps) {
               const isCollapsed = !filterActive && collapsed.has(category);
               return (
                 <div key={category}>
-                  <div className="flex items-center gap-2.5 px-3 py-2 hover:bg-white/[0.02]">
+                  <div className="flex items-center gap-2.5 bg-white/[0.015] px-4 py-2.5 transition-colors hover:bg-white/[0.03]">
                     <IndeterminateCheckbox
                       checked={catAll}
                       indeterminate={catSome}
@@ -419,15 +421,15 @@ export default function ResultsPanel({ results, target }: ResultsPanelProps) {
                       className="flex flex-1 items-center gap-2.5 text-left"
                     >
                       <ChevronIcon
-                        className={`h-4 w-4 shrink-0 text-fg-faint transition-transform ${
+                        className={`h-4 w-4 shrink-0 text-fg-faint transition-transform duration-200 ${
                           isCollapsed ? "-rotate-90" : ""
                         }`}
                       />
-                      <span className="font-mono text-xs uppercase tracking-wider text-accent">
+                      <span className="font-mono text-xs font-medium uppercase tracking-wider text-accent">
                         {category}
                       </span>
                       <span className="h-px flex-1 bg-line-soft" />
-                      <span className="font-mono text-xs text-fg-faint">
+                      <span className="rounded-full border border-line bg-canvas px-2 py-0.5 font-mono text-[10px] tabular-nums text-fg-muted">
                         {rows.length}
                       </span>
                     </button>

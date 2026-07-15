@@ -42,10 +42,10 @@ export default function DomainTools() {
             key={t.key}
             type="button"
             onClick={() => setTool(t.key)}
-            className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+            className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-all duration-150 ${
               t.key === tool
-                ? "border-accent/40 bg-accent/10 text-accent"
-                : "border-line bg-surface text-fg-muted hover:text-fg"
+                ? "border-accent/40 bg-gradient-to-b from-accent/20 to-accent/5 text-accent ring-1 ring-inset ring-accent/20"
+                : "border-line bg-surface text-fg-muted hover:border-line hover:bg-surface-2 hover:text-fg"
             }`}
           >
             {t.label}
