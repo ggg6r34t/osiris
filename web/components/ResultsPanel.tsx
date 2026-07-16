@@ -7,6 +7,8 @@ import { safeHref } from "@/lib/url";
 import type { CheckResult, SearchResult } from "@/lib/types";
 import CopyButton from "./CopyButton";
 import ExportMenu from "./ExportMenu";
+import ScreenshotButton from "./ScreenshotButton";
+import { isHttpUrl } from "@/lib/url";
 import {
   BoltIcon,
   ChevronIcon,
@@ -127,6 +129,7 @@ function ResultRow({
       </a>
       <ScoreBadge {...result} />
       <div className="flex shrink-0 items-center gap-2 opacity-60 transition-opacity group-hover:opacity-100">
+        {isHttpUrl(result.url) && <ScreenshotButton url={result.url} />}
         <CopyButton value={result.url} title="Copy URL" />
         <a
           href={safeHref(result.url)}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { domainMatch } from "@/lib/api";
 import type { DomainMatch } from "@/lib/types";
 import ExportRows from "./ExportRows";
+import ScreenshotButton from "../ScreenshotButton";
 import { RunBar, ToolError, ToolLoading, useTool } from "./ui";
 
 export default function DomainMatchView() {
@@ -56,7 +57,7 @@ export default function DomainMatchView() {
           ) : (
             <div className="divide-y divide-line-soft/60">
               {data.map((m, i) => (
-                <div key={i} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5 text-sm">
+                <div key={i} className="group flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5 text-sm">
                   <span className="font-mono text-fg">{m.domain}</span>
                   <span className="text-fg-faint">variant: {m.matched_variant}</span>
                   {m.whois?.domain_info?.registrar && (
@@ -69,6 +70,9 @@ export default function DomainMatchView() {
                       {m.whois.registration_dates.creation_date}
                     </span>
                   )}
+                  <span className="ml-auto opacity-60 transition-opacity group-hover:opacity-100">
+                    <ScreenshotButton url={`http://${m.domain}`} />
+                  </span>
                 </div>
               ))}
             </div>

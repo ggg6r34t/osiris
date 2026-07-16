@@ -242,6 +242,14 @@ export function brandAbuse(
   });
 }
 
+export async function screenshot(url: string): Promise<string> {
+  const d = await jsonFetch<{ image: string }>("/api/screenshot", {
+    method: "POST",
+    body: JSON.stringify({ url }),
+  });
+  return d.image;
+}
+
 export function generateRegex(
   value: string,
   level: RegexLevel,

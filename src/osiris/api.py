@@ -1,3 +1,4 @@
+import base64
 import copy
 import os
 import re
@@ -522,6 +523,30 @@ def api_clone_detect(req: DomainRequest):
         return {"domain": domain, "variants_checked": len(variants), "clones": clones}
 
     return _cached(f"clone-detect:{domain}", lambda: _bounded(_produce, 120), refresh=req.refresh)
+
+
+class ScreenshotRequest(BaseModel):
+    url: str
+
+
+@app.post("/api/screenshot")
+def api_screenshot(req: ScreenshotRequest):
+    url = (req.url or "").strip()
+    if not (url.lower().startswith("http://") or url.lower().startswith("https://")):
+        raise HTTPException(status_code=422, detail="URL must start with http:// or https://.")
+
+    from osiris.screenshot import ScreenshotUnavailable, capture
+
+    try:
+        png = _bounded(lambda: capture(url), 40)
+    except ScreenshotUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"Screenshot failed: {e}")
+
+    return {"image": "data:image/png;base64," + base64.b64encode(png).decode()}
 
 
 @app.post("/api/takedown")

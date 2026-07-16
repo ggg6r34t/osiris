@@ -1,0 +1,5 @@
+# Optional dependency for the screenshot feature (Domain Tools → suspect pages).
+# Install, then download the browser:
+#   pip install -r requirements-screenshots.txt
+#   playwright install chromium
+playwright~=1.49

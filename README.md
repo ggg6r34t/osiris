@@ -249,6 +249,9 @@ Copy `.env.example` to `.env` (gitignored) and fill in what you need — `run.sh
 - **Brand Abuse (regex) tool** requires the internal Panda API (VPN): `OSIRIS_PANDA_URL`, `OSIRIS_PANDA_LOGIN`,
   `OSIRIS_PANDA_KEY`. Without them the tool returns a clear "not configured" message.
 - **Enrichment** API keys (optional, degrade gracefully): `ABUSEIPDB_API_KEY`, `SECURITYTRAILS_API_KEY`, `IPINFO_TOKEN`.
+- **Screenshots** (optional) — capture suspect/lookalike/clone pages headlessly. Install once:
+  `pip install -r requirements-screenshots.txt && playwright install chromium`. Without it, the camera button
+  shows a clear "install to enable" message and nothing else is affected.
 
 ### Tests
 

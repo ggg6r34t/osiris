@@ -4,6 +4,7 @@ import { useState } from "react";
 import { cloneDetect } from "@/lib/api";
 import type { CloneDetectResult } from "@/lib/types";
 import ExportRows from "./ExportRows";
+import ScreenshotButton from "../ScreenshotButton";
 import { RunBar, ToolError, ToolLoading, useTool } from "./ui";
 
 export default function CloneDetectView() {
@@ -53,7 +54,7 @@ export default function CloneDetectView() {
           ) : (
             <div className="divide-y divide-line-soft/60">
               {data.clones.map((c) => (
-                <div key={c} className="flex items-center gap-2 px-4 py-2.5 text-sm">
+                <div key={c} className="group flex items-center gap-2 px-4 py-2.5 text-sm">
                   <span className="h-2 w-2 shrink-0 rounded-full bg-danger" />
                   <a
                     href={`http://${c}`}
@@ -63,6 +64,9 @@ export default function CloneDetectView() {
                   >
                     {c}
                   </a>
+                  <span className="ml-auto opacity-60 transition-opacity group-hover:opacity-100">
+                    <ScreenshotButton url={`http://${c}`} />
+                  </span>
                 </div>
               ))}
             </div>
