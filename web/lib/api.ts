@@ -13,12 +13,14 @@ import type {
   DnstwistEntry,
   DomainMatch,
   EnrichResult,
+  MonitorReport,
   PlatformsResponse,
   SearchOptions,
   SearchResponse,
   SearchResult,
   Settings,
   TakedownEmail,
+  WatchTarget,
 } from "./types";
 
 const API_BASE_URL =
@@ -317,4 +319,33 @@ export async function updateCaseItem(
 
 export async function deleteCaseItem(itemId: number): Promise<void> {
   await jsonFetch(`/api/cases/items/${itemId}`, { method: "DELETE" });
+}
+
+// ---- Monitoring (watchlist + diff) ----
+export async function getWatchlist(): Promise<WatchTarget[]> {
+  const d = await jsonFetch<{ watchlist: WatchTarget[] }>("/api/watchlist");
+  return d.watchlist;
+}
+
+export async function addWatch(target: string): Promise<WatchTarget[]> {
+  const d = await jsonFetch<{ watchlist: WatchTarget[] }>("/api/watchlist", {
+    method: "POST",
+    body: JSON.stringify({ target }),
+  });
+  return d.watchlist;
+}
+
+export async function removeWatch(target: string): Promise<WatchTarget[]> {
+  const d = await jsonFetch<{ watchlist: WatchTarget[] }>("/api/watchlist", {
+    method: "DELETE",
+    body: JSON.stringify({ target }),
+  });
+  return d.watchlist;
+}
+
+export function runMonitor(target: string): Promise<MonitorReport> {
+  return jsonFetch<MonitorReport>("/api/monitor/run", {
+    method: "POST",
+    body: JSON.stringify({ target }),
+  });
 }

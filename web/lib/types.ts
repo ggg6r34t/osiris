@@ -161,6 +161,20 @@ export type CaseDetail = {
   items: CaseItem[];
 };
 
+export type WatchTarget = { id: number; target: string; ts: number };
+
+export type MonitorToolReport = {
+  current: string[];
+  new: string[];
+  gone: string[];
+  first_run: boolean;
+};
+
+export type MonitorReport = {
+  target: string;
+  report: Record<string, MonitorToolReport>;
+};
+
 export type RegexLevel = "conservative" | "balanced" | "aggressive";
 
 export type GenerateRegexResponse = {

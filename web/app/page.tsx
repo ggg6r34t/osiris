@@ -45,7 +45,7 @@ const SECTIONS: Record<TabKey, { title: string; desc: string }> = {
   },
   cases: {
     title: "Cases",
-    desc: "Investigation cases and run history (stored locally).",
+    desc: "Investigation cases, monitoring watchlist, and run history (stored locally).",
   },
   custom: {
     title: "Custom Platforms",

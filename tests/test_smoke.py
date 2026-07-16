@@ -203,6 +203,43 @@ def test_storage_watchlist_and_snapshots(tmp_path, monkeypatch):
     assert st.list_watch() == []
 
 
+def test_monitor_diff_pure():
+    from osiris.monitor import diff
+
+    assert diff(None, ["a"]) == {"new": [], "gone": [], "first_run": True}
+    assert diff(["a", "b"], ["b", "c"]) == {
+        "new": ["c"],
+        "gone": ["a"],
+        "first_run": False,
+    }
+
+
+def test_run_monitor_flags_new(tmp_path, monkeypatch):
+    import osiris.monitor as mon
+    import osiris.storage as st
+
+    monkeypatch.setattr(st, "DB_PATH", str(tmp_path / "m.db"))
+    monkeypatch.setattr(st, "_conn", None)
+
+    calls = {"n": 0}
+
+    def fake_match(_target):
+        calls["n"] += 1
+        return ["a.com", "b.com"] if calls["n"] == 1 else ["a.com", "b.com", "new.com"]
+
+    monkeypatch.setattr(mon, "_match_domains", fake_match)
+    monkeypatch.setattr(mon, "_dnstwist_domains", lambda _t: [])
+
+    r1 = mon.run_monitor("x.com")
+    assert r1["domain-match"]["first_run"] is True
+    assert st.list_watch()[0]["target"] == "x.com"
+
+    r2 = mon.run_monitor("x.com")
+    assert r2["domain-match"]["first_run"] is False
+    assert r2["domain-match"]["new"] == ["new.com"]
+    assert r2["domain-match"]["gone"] == []
+
+
 def test_takedown_email_builder():
     enrichment = {
         "domain": "evil-paypa1.com",

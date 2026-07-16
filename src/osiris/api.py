@@ -869,3 +869,38 @@ def patch_item(item_id: int, req: CaseItemUpdate):
 def remove_item(item_id: int):
     storage.delete_case_item(item_id)
     return {"ok": True}
+
+
+# --------------------------------------------------------------------------- #
+# Monitoring (watchlist + re-run + diff)
+# --------------------------------------------------------------------------- #
+class WatchRequest(BaseModel):
+    target: str
+
+
+@app.get("/api/watchlist")
+def get_watchlist():
+    return {"watchlist": storage.list_watch()}
+
+
+@app.post("/api/watchlist")
+def add_watchlist(req: WatchRequest):
+    storage.add_watch(_valid_domain(req.target))
+    return {"watchlist": storage.list_watch()}
+
+
+@app.delete("/api/watchlist")
+def delete_watchlist(req: WatchRequest):
+    storage.remove_watch(req.target.strip())
+    return {"watchlist": storage.list_watch()}
+
+
+@app.post("/api/monitor/run")
+def api_monitor_run(req: WatchRequest):
+    from osiris.monitor import run_monitor
+
+    target = _valid_domain(req.target)
+    report = _bounded(lambda: run_monitor(target), 240)
+    new_count = sum(len(r.get("new") or []) for r in report.values())
+    _record("monitor", target, {"new": new_count})
+    return {"target": target, "report": report}

@@ -202,6 +202,8 @@ def parse_args():
     parser.add_argument("-P", "--list-platforms", action="store_true",
                         help="List all supported platforms and categories")
     parser.add_argument("-n", "--no-banner", action="store_true", help="Suppress ASCII banner output")
+    parser.add_argument("--monitor", action="store_true",
+                        help="Re-run monitoring for all watchlist targets and report new lookalikes (cron-friendly)")
 
     args = parser.parse_args()
 
@@ -245,6 +247,27 @@ def main():
         os.environ["OSIRIS_HTTP_PROXY"] = config["http_proxy"]
     if config.get("https_proxy"):
         os.environ["OSIRIS_HTTPS_PROXY"] = config["https_proxy"]
+
+    if args.monitor:
+        from osiris.monitor import run_monitor
+        from osiris.storage import list_watch
+
+        targets = [w["target"] for w in list_watch()]
+        if not targets:
+            console.print("[yellow]Watchlist is empty. Add targets in the web UI (Cases → Monitor).[/yellow]")
+            sys.exit(0)
+        for t in targets:
+            console.rule(f"[bold blue]Monitoring {t}")
+            report = run_monitor(t)
+            for tool, r in report.items():
+                new = r.get("new") or []
+                if r.get("first_run"):
+                    console.print(f"  {tool}: baseline saved ({len(r['current'])} domains)")
+                elif new:
+                    console.print(f"  [bold red]{tool}: {len(new)} NEW[/bold red] → {', '.join(new[:10])}")
+                else:
+                    console.print(f"  [green]{tool}: no new[/green]")
+        sys.exit(0)
 
     json_mode = bool(config.get("json_output"))
     check_timeout = args.check_timeout if args.check_timeout is not None else int(

@@ -12,6 +12,7 @@ import {
   updateCaseItem,
 } from "@/lib/api";
 import type { CaseDetail, CaseSummary, HistoryEntry } from "@/lib/types";
+import MonitorView from "./MonitorView";
 import { TrashIcon } from "./icons";
 
 const STATUS_OPTS = ["open", "suspicious", "escalate", "cleared"];
@@ -231,11 +232,11 @@ function CasesView() {
 }
 
 export default function Workspace() {
-  const [view, setView] = useState<"history" | "cases">("cases");
+  const [view, setView] = useState<"cases" | "monitor" | "history">("cases");
   return (
     <div className="flex flex-col gap-4">
       <div className="flex rounded-lg border border-line bg-canvas p-0.5 text-sm">
-        {(["cases", "history"] as const).map((v) => (
+        {(["cases", "monitor", "history"] as const).map((v) => (
           <button
             key={v}
             type="button"
@@ -248,7 +249,9 @@ export default function Workspace() {
           </button>
         ))}
       </div>
-      {view === "cases" ? <CasesView /> : <HistoryView />}
+      {view === "cases" && <CasesView />}
+      {view === "monitor" && <MonitorView />}
+      {view === "history" && <HistoryView />}
     </div>
   );
 }

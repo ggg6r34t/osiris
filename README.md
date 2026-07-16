@@ -211,6 +211,11 @@ into three tabs:
   homoglyph/typosquat pattern), **Text Clone** and **Phishing Dorks** (dork-link builders), and **Deep Search** (all of the above
   combined). These make outbound network calls and can be slow; results are cached in-process for ~1 hour so
   re-querying is instant.
+- **Cases** — a local investigation workspace (SQLite `osiris.db`, gitignored): **Cases** (group findings,
+  per-item status/notes, "Add to case" from Enrich), **Monitor** (watchlist that re-runs Domain Match + DNSTwist
+  and highlights newly-registered lookalikes vs. the last run — also `osiris --monitor` for cron), and **History**
+  (recent runs). Enrich also has **bulk** mode, per-tool **CSV/JSON export**, a **↻ refresh** (cache bypass), a
+  **takedown/abuse-email** generator, and **screenshots** of suspect pages.
 - **Custom Platforms** — add/list/remove user platforms (persisted to `custom_platforms.json`).
 - **Settings** — User-Agent, request timeout, rate limit, HTTP(S) proxy, Tor, and TLS verification.
 
