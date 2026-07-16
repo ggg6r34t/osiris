@@ -11,6 +11,12 @@ import {
   getHistory,
   updateCaseItem,
 } from "@/lib/api";
+import {
+  exportCaseCsv,
+  exportCaseIocs,
+  exportCaseJson,
+  openCaseReport,
+} from "@/lib/caseExport";
 import type { CaseDetail, CaseSummary, HistoryEntry } from "@/lib/types";
 import MonitorView from "./MonitorView";
 import { TrashIcon } from "./icons";
@@ -156,19 +162,42 @@ function CasesView() {
           </p>
         ) : (
           <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-base font-medium text-fg">{active.name}</h3>
-              <button
-                type="button"
-                onClick={async () => {
-                  await deleteCase(active.id);
-                  setActive(null);
-                  loadCases();
-                }}
-                className="text-xs text-fg-faint hover:text-danger"
-              >
-                Delete case
-              </button>
+              <div className="flex items-center gap-2">
+                {active.items.length > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    {(
+                      [
+                        ["CSV", () => exportCaseCsv(active)],
+                        ["JSON", () => exportCaseJson(active)],
+                        ["IOCs", () => exportCaseIocs(active)],
+                        ["Report", () => openCaseReport(active)],
+                      ] as const
+                    ).map(([label, fn]) => (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={fn}
+                        className="rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-fg-muted transition-colors hover:text-fg"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await deleteCase(active.id);
+                    setActive(null);
+                    loadCases();
+                  }}
+                  className="text-xs text-fg-faint hover:text-danger"
+                >
+                  Delete case
+                </button>
+              </div>
             </div>
             {active.items.length === 0 ? (
               <p className="py-8 text-center text-sm text-fg-muted">

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { domainMatch } from "@/lib/api";
 import type { DomainMatch } from "@/lib/types";
 import ExportRows from "./ExportRows";
+import AddToCase from "../AddToCase";
 import ScreenshotButton from "../ScreenshotButton";
 import { RunBar, ToolError, ToolLoading, useTool } from "./ui";
 
@@ -70,8 +71,19 @@ export default function DomainMatchView() {
                       {m.whois.registration_dates.creation_date}
                     </span>
                   )}
-                  <span className="ml-auto opacity-60 transition-opacity group-hover:opacity-100">
-                    <ScreenshotButton url={`http://${m.domain}`} />
+                  <span className="ml-auto flex items-center gap-2">
+                    <AddToCase
+                      compact
+                      kind="domain"
+                      data={{
+                        domain: m.domain,
+                        matched_variant: m.matched_variant,
+                        registrar: m.whois?.domain_info?.registrar ?? "",
+                      }}
+                    />
+                    <span className="opacity-60 transition-opacity group-hover:opacity-100">
+                      <ScreenshotButton url={`http://${m.domain}`} />
+                    </span>
                   </span>
                 </div>
               ))}

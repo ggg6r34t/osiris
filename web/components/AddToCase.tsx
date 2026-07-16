@@ -9,9 +9,11 @@ import { CheckIcon, PlusIcon } from "./icons";
 export default function AddToCase({
   kind,
   data,
+  compact = false,
 }: {
   kind: string;
   data: Record<string, unknown>;
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [cases, setCases] = useState<CaseSummary[]>([]);
@@ -51,14 +53,17 @@ export default function AddToCase({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
+        title="Add to case"
+        className={`inline-flex items-center gap-1.5 rounded-md border font-medium transition-colors ${
+          compact ? "px-2 py-1 text-[11px]" : "px-3 py-1.5 text-xs"
+        } ${
           added
             ? "border-live/40 bg-live/10 text-live"
             : "border-line bg-surface text-fg-muted hover:text-fg"
         }`}
       >
-        {added ? <CheckIcon className="h-4 w-4" /> : <PlusIcon className="h-4 w-4" />}
-        {added ? "Added" : "Add to case"}
+        {added ? <CheckIcon className="h-3.5 w-3.5" /> : <PlusIcon className="h-3.5 w-3.5" />}
+        {added ? "Added" : compact ? "Case" : "Add to case"}
       </button>
 
       {open && (

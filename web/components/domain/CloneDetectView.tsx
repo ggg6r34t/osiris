@@ -4,6 +4,7 @@ import { useState } from "react";
 import { cloneDetect } from "@/lib/api";
 import type { CloneDetectResult } from "@/lib/types";
 import ExportRows from "./ExportRows";
+import AddToCase from "../AddToCase";
 import ScreenshotButton from "../ScreenshotButton";
 import { RunBar, ToolError, ToolLoading, useTool } from "./ui";
 
@@ -64,8 +65,11 @@ export default function CloneDetectView() {
                   >
                     {c}
                   </a>
-                  <span className="ml-auto opacity-60 transition-opacity group-hover:opacity-100">
-                    <ScreenshotButton url={`http://${c}`} />
+                  <span className="ml-auto flex items-center gap-2">
+                    <AddToCase compact kind="clone" data={{ domain: c }} />
+                    <span className="opacity-60 transition-opacity group-hover:opacity-100">
+                      <ScreenshotButton url={`http://${c}`} />
+                    </span>
                   </span>
                 </div>
               ))}
