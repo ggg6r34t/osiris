@@ -1,5 +1,6 @@
 import type {
   BrandAbuseResponse,
+  BulkEnrichResponse,
   GenerateRegexResponse,
   RegexLevel,
   CheckResult,
@@ -14,6 +15,7 @@ import type {
   SearchResponse,
   SearchResult,
   Settings,
+  TakedownEmail,
 } from "./types";
 
 const API_BASE_URL =
@@ -138,34 +140,67 @@ export async function removeCustomPlatform(
   return data.platforms;
 }
 
-// ---- Domain-intelligence tools (Phase 2) ----
-export function enrichDomain(domain: string): Promise<EnrichResult> {
+// ---- Domain-intelligence tools ----
+export function enrichDomain(
+  domain: string,
+  refresh = false,
+): Promise<EnrichResult> {
   return jsonFetch<EnrichResult>("/api/enrich", {
     method: "POST",
-    body: JSON.stringify({ domain }),
+    body: JSON.stringify({ domain, refresh }),
   });
 }
 
-export async function domainMatch(domain: string): Promise<DomainMatch[]> {
+export async function enrichBulk(
+  domains: string[],
+  refresh = false,
+): Promise<BulkEnrichResponse> {
+  return jsonFetch<BulkEnrichResponse>("/api/enrich-bulk", {
+    method: "POST",
+    body: JSON.stringify({ domains, refresh }),
+  });
+}
+
+export function takedown(
+  enrichment: EnrichResult,
+  brand: string,
+  reporter: string,
+): Promise<TakedownEmail> {
+  return jsonFetch<TakedownEmail>("/api/takedown", {
+    method: "POST",
+    body: JSON.stringify({ enrichment, brand, reporter }),
+  });
+}
+
+export async function domainMatch(
+  domain: string,
+  refresh = false,
+): Promise<DomainMatch[]> {
   const d = await jsonFetch<{ matches: DomainMatch[] }>("/api/domain-match", {
     method: "POST",
-    body: JSON.stringify({ domain }),
+    body: JSON.stringify({ domain, refresh }),
   });
   return d.matches;
 }
 
-export async function dnstwist(domain: string): Promise<DnstwistEntry[]> {
+export async function dnstwist(
+  domain: string,
+  refresh = false,
+): Promise<DnstwistEntry[]> {
   const d = await jsonFetch<{ results: DnstwistEntry[] }>("/api/dnstwist", {
     method: "POST",
-    body: JSON.stringify({ domain }),
+    body: JSON.stringify({ domain, refresh }),
   });
   return d.results;
 }
 
-export function cloneDetect(domain: string): Promise<CloneDetectResult> {
+export function cloneDetect(
+  domain: string,
+  refresh = false,
+): Promise<CloneDetectResult> {
   return jsonFetch<CloneDetectResult>("/api/clone-detect", {
     method: "POST",
-    body: JSON.stringify({ domain }),
+    body: JSON.stringify({ domain, refresh }),
   });
 }
 
@@ -188,20 +223,22 @@ export async function phishingDorks(keywords: string[]): Promise<SearchResult[]>
 export function deepSearch(
   target: string,
   score: boolean,
+  refresh = false,
 ): Promise<DeepSearchResponse> {
   return jsonFetch<DeepSearchResponse>("/api/deep-search", {
     method: "POST",
-    body: JSON.stringify({ target, score }),
+    body: JSON.stringify({ target, score, refresh }),
   });
 }
 
 export function brandAbuse(
   regex: string,
   idOnly: boolean,
+  refresh = false,
 ): Promise<BrandAbuseResponse> {
   return jsonFetch<BrandAbuseResponse>("/api/brand-abuse", {
     method: "POST",
-    body: JSON.stringify({ regex, id_only: idOnly }),
+    body: JSON.stringify({ regex, id_only: idOnly, refresh }),
   });
 }
 

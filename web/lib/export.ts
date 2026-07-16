@@ -41,6 +41,38 @@ export function toTxt(results: SearchResult[]): string {
     .join("\n");
 }
 
+/** Generic CSV for arbitrary flat row objects (union of keys as columns). */
+export function rowsToCsv(rows: Record<string, unknown>[]): string {
+  if (rows.length === 0) return "";
+  const headers: string[] = [];
+  for (const row of rows) {
+    for (const k of Object.keys(row)) if (!headers.includes(k)) headers.push(k);
+  }
+  const cell = (v: unknown) =>
+    csvField(v === null || v === undefined ? "" : String(v));
+  return [
+    headers.join(","),
+    ...rows.map((r) => headers.map((h) => cell(r[h])).join(",")),
+  ].join("\n");
+}
+
+/** Download arbitrary rows as CSV or JSON with a base filename. */
+export function exportRows(
+  rows: Record<string, unknown>[],
+  baseName: string,
+  fmt: "csv" | "json",
+): void {
+  if (fmt === "csv") {
+    triggerDownload(`${baseName}.csv`, rowsToCsv(rows), "text/csv");
+  } else {
+    triggerDownload(
+      `${baseName}.json`,
+      JSON.stringify(rows, null, 2),
+      "application/json",
+    );
+  }
+}
+
 export function triggerDownload(
   filename: string,
   content: string,

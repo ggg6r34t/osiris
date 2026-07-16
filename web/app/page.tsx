@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Header from "@/components/Header";
 import Sidebar, { type TabKey } from "@/components/Sidebar";
+import CommandPalette, { type Command } from "@/components/CommandPalette";
 import SearchPanel from "@/components/SearchPanel";
 import ResultsPanel from "@/components/ResultsPanel";
 import EmptyState from "@/components/EmptyState";
@@ -121,8 +122,16 @@ export default function Home() {
 
   const section = SECTIONS[tab];
 
+  const commands: Command[] = NAV_ITEMS.map((item) => ({
+    id: item.key,
+    label: `Go to ${item.label}`,
+    hint: item.key === "search" ? "⌘K" : undefined,
+    run: () => setTab(item.key),
+  }));
+
   return (
     <div className="flex h-screen flex-col">
+      <CommandPalette commands={commands} />
       <Header />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar items={NAV_ITEMS} active={tab} onChange={setTab} />

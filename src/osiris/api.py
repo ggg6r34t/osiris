@@ -28,6 +28,7 @@ from osiris.regex_generator import LEVELS as REGEX_LEVELS
 from osiris.regex_generator import brand_label, generate_brand_regex
 from osiris.run_phishing_dorks import run_phishing_dorks
 from osiris.search_links import generate_search_links
+from osiris.takedown import build_takedown_email
 from osiris.text_clone_search import text_clone_search
 from osiris.threat_scoring import score_threat
 from osiris.utils import build_http_session, dedupe_links, fuzzy_match_platforms
@@ -61,14 +62,16 @@ _CACHE: dict[str, tuple[float, object]] = {}
 _CACHE_TTL_SECONDS = 3600
 
 
-def _cached(key: str, producer: Callable):
+def _cached(key: str, producer: Callable, refresh: bool = False):
     """Tiny in-process TTL cache for slow/flaky domain-intel lookups. This is a
     single-user local tool, so process memory is sufficient (cleared on restart).
-    Exceptions from the producer propagate and are never cached."""
+    Exceptions from the producer propagate and are never cached. `refresh=True`
+    bypasses the cached value and recomputes."""
     now = time.monotonic()
-    hit = _CACHE.get(key)
-    if hit is not None and now - hit[0] < _CACHE_TTL_SECONDS:
-        return hit[1]
+    if not refresh:
+        hit = _CACHE.get(key)
+        if hit is not None and now - hit[0] < _CACHE_TTL_SECONDS:
+            return hit[1]
     value = producer()
     _CACHE[key] = (now, value)
     return value
@@ -218,6 +221,7 @@ class CheckRequest(BaseModel):
 
 
 MAX_CHECK_URLS = 1000
+MAX_BULK_DOMAINS = 25
 
 
 def _check_one(session: requests.Session, url: str, timeout: int, verify_tls: bool) -> dict:
@@ -400,6 +404,7 @@ def delete_custom_platform(req: RemoveCustomPlatformRequest):
 # --------------------------------------------------------------------------- #
 class DomainRequest(BaseModel):
     domain: str
+    refresh: bool = False
 
 
 class TextRequest(BaseModel):
@@ -413,6 +418,19 @@ class KeywordsRequest(BaseModel):
 class DeepSearchRequest(BaseModel):
     target: str
     score: bool = False
+    refresh: bool = False
+
+
+class BulkEnrichRequest(BaseModel):
+    domains: list[str]
+    refresh: bool = False
+
+
+class TakedownRequest(BaseModel):
+    enrichment: dict | None = None
+    domain: str | None = None
+    reporter: str = ""
+    brand: str = ""
 
 
 def _valid_domain(domain: str) -> str:
@@ -430,7 +448,46 @@ def api_enrich(req: DomainRequest):
     return _cached(
         f"enrich:{domain}",
         lambda: _bounded(lambda: _run(enrich, f"http://{domain}"), 75),
+        refresh=req.refresh,
     )
+
+
+@app.post("/api/enrich-bulk")
+def api_enrich_bulk(req: BulkEnrichRequest):
+    domains = []
+    for raw in req.domains or []:
+        d = normalize_domain((raw or "").strip())
+        if d and is_valid_domain(d):
+            domains.append(d)
+    domains = list(dict.fromkeys(domains))[:MAX_BULK_DOMAINS]
+    if not domains:
+        raise HTTPException(status_code=422, detail="Provide at least one valid domain.")
+
+    def _one(domain: str) -> dict:
+        try:
+            data = _cached(
+                f"enrich:{domain}",
+                lambda: _bounded(lambda: enrich(f"http://{domain}"), 75),
+                refresh=req.refresh,
+            )
+            host = data.get("host") or {}
+            whois = data.get("whois") or {}
+            return {
+                "domain": domain,
+                "risk_score": data.get("risk_score"),
+                "registrar": (whois.get("domain_info") or {}).get("registrar"),
+                "ip": host.get("ip"),
+                "country": (host.get("geolocation") or {}).get("country"),
+                "lookalikes": len(data.get("lookalike_domains") or []),
+            }
+        except HTTPException as e:
+            return {"domain": domain, "error": str(e.detail)}
+        except Exception as e:  # noqa: BLE001
+            return {"domain": domain, "error": f"{type(e).__name__}: {e}"}
+
+    with ThreadPoolExecutor(max_workers=min(3, len(domains))) as pool:
+        rows = list(pool.map(_one, domains))
+    return {"count": len(rows), "results": rows}
 
 
 @app.post("/api/domain-match")
@@ -439,6 +496,7 @@ def api_domain_match(req: DomainRequest):
     matches = _cached(
         f"domain-match:{domain}",
         lambda: _bounded(lambda: _run(find_similar_domains, domain), 90),
+        refresh=req.refresh,
     )
     return {"domain": domain, "matches": matches}
 
@@ -449,6 +507,7 @@ def api_dnstwist(req: DomainRequest):
     results = _cached(
         f"dnstwist:{domain}",
         lambda: _bounded(lambda: _run(run_dnstwist, domain) or [], 210),
+        refresh=req.refresh,
     )
     return {"domain": domain, "results": results}
 
@@ -462,7 +521,22 @@ def api_clone_detect(req: DomainRequest):
         clones = _run(detect_clones, domain, variants)
         return {"domain": domain, "variants_checked": len(variants), "clones": clones}
 
-    return _cached(f"clone-detect:{domain}", lambda: _bounded(_produce, 120))
+    return _cached(f"clone-detect:{domain}", lambda: _bounded(_produce, 120), refresh=req.refresh)
+
+
+@app.post("/api/takedown")
+def api_takedown(req: TakedownRequest):
+    enrichment = req.enrichment
+    if enrichment is None:
+        if not req.domain:
+            raise HTTPException(
+                status_code=422, detail="Provide an enrichment result or a domain."
+            )
+        domain = _valid_domain(req.domain)
+        enrichment = _cached(
+            f"enrich:{domain}", lambda: _bounded(lambda: _run(enrich, f"http://{domain}"), 75)
+        )
+    return build_takedown_email(enrichment, reporter=req.reporter, brand=req.brand)
 
 
 @app.post("/api/text-clone")
@@ -540,7 +614,11 @@ def api_deep_search(req: DeepSearchRequest):
 
         return {"target": target, "results": results, "count": len(links), "links": links}
 
-    return _cached(f"deep-search:{target}:{req.score}", lambda: _bounded(_produce, 200))
+    return _cached(
+        f"deep-search:{target}:{req.score}",
+        lambda: _bounded(_produce, 200),
+        refresh=req.refresh,
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -552,6 +630,7 @@ def api_deep_search(req: DeepSearchRequest):
 class RegexRequest(BaseModel):
     regex: str
     id_only: bool = False
+    refresh: bool = False
 
 
 class RegexGenRequest(BaseModel):
@@ -664,4 +743,5 @@ def api_brand_abuse(req: RegexRequest):
     return _cached(
         f"brand-abuse:{req.id_only}:{regex}",
         lambda: _bounded(lambda: _run(_produce), 60),
+        refresh=req.refresh,
     )

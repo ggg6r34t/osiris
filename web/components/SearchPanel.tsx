@@ -51,6 +51,16 @@ function splitList(value: string): string[] {
     .filter(Boolean);
 }
 
+// Investigation-type presets → category selection (empty = all platforms).
+const PRESETS: { label: string; categories: string[] }[] = [
+  { label: "All", categories: [] },
+  { label: "Trademark", categories: ["marketplace", "mobile_apps", "social_networks", "web"] },
+  { label: "People", categories: ["social_networks", "osint_engines"] },
+  { label: "Scams", categories: ["marketplace", "social_networks", "phishing_detection"] },
+  { label: "Phishing", categories: ["phishing_detection", "cyber_intel", "osint_engines"] },
+  { label: "Web", categories: ["web", "osint_engines"] },
+];
+
 export default function SearchPanel({
   data,
   loading,
@@ -84,6 +94,18 @@ export default function SearchPanel({
     if (next.has(value)) next.delete(value);
     else next.add(value);
     return next;
+  }
+
+  function applyPreset(categories: string[]) {
+    if (categories.length === 0) {
+      setMode("all");
+      setSelectedCategories(new Set());
+      setSelectedPlatforms(new Set());
+      return;
+    }
+    setMode("select");
+    setSelectedPlatforms(new Set());
+    setSelectedCategories(new Set(categories.filter((c) => data?.categories.includes(c))));
   }
 
   function currentTargets(): string[] {
@@ -196,6 +218,22 @@ export default function SearchPanel({
       </div>
 
       <div className="mt-4 border-t border-line-soft pt-4">
+        <div className="mb-3 flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 font-mono text-[11px] uppercase tracking-wider text-fg-muted">
+            Preset
+          </span>
+          {PRESETS.map((preset) => (
+            <button
+              key={preset.label}
+              type="button"
+              onClick={() => applyPreset(preset.categories)}
+              title={preset.categories.join(", ") || "all categories"}
+              className="rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-fg-muted transition-colors hover:border-accent/40 hover:text-accent"
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
         <PlatformPicker
           data={data}
           mode={mode}

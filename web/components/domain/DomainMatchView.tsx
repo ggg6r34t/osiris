@@ -3,11 +3,19 @@
 import { useState } from "react";
 import { domainMatch } from "@/lib/api";
 import type { DomainMatch } from "@/lib/types";
+import ExportRows from "./ExportRows";
 import { RunBar, ToolError, ToolLoading, useTool } from "./ui";
 
 export default function DomainMatchView() {
   const [domain, setDomain] = useState("");
   const { data, loading, error, run, ran } = useTool<DomainMatch[]>();
+
+  const rows = (data ?? []).map((m) => ({
+    domain: m.domain,
+    matched_variant: m.matched_variant,
+    registrar: m.whois?.domain_info?.registrar ?? "",
+    created: m.whois?.registration_dates?.creation_date ?? "",
+  }));
 
   return (
     <div className="flex flex-col gap-4">
@@ -25,9 +33,21 @@ export default function DomainMatchView() {
       {!loading && error && <ToolError message={error} />}
 
       {!loading && data && (
-        <div className="animate-fade-in overflow-hidden rounded-xl border border-line bg-surface/60">
-          <div className="border-b border-line-soft px-4 py-2.5 font-mono text-[11px] uppercase tracking-wider text-fg-muted">
-            {data.length} suspicious {data.length === 1 ? "match" : "matches"}
+        <div className="animate-fade-in overflow-hidden rounded-2xl border border-line bg-surface/60 shadow-card">
+          <div className="flex items-center justify-between border-b border-line-soft px-4 py-2.5">
+            <span className="font-mono text-[11px] uppercase tracking-wider text-fg-muted">
+              {data.length} suspicious {data.length === 1 ? "match" : "matches"}
+            </span>
+            <div className="flex items-center gap-2">
+              <ExportRows rows={rows} baseName={`domain-match-${domain}`} />
+              <button
+                type="button"
+                onClick={() => run(() => domainMatch(domain, true))}
+                className="rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-fg-muted hover:text-fg"
+              >
+                ↻ Refresh
+              </button>
+            </div>
           </div>
           {data.length === 0 ? (
             <p className="px-4 py-10 text-center text-sm text-fg-muted">

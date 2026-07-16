@@ -3,6 +3,7 @@ import ssl
 import re
 import ipaddress
 from typing import Any, Dict, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 import whois
 import dns.resolver
@@ -429,39 +430,69 @@ def calculate_risk_score(data):
 
 def enrich(target: str, is_url: bool = False):
     from osiris.domain_matcher import find_similar_domains
+
     is_url = is_url or str(target).startswith("http")
     domain = normalize_domain(target)
 
-    whois_data = get_whois_info(domain)
-    dns_data = resolve_dns(domain)
-    host_data = get_hosting_info(domain)
-    page_hash = get_page_hash(f"http://{domain}") if is_url else None
-    favicon_data = get_favicon_hash(domain)
-    passive_dns_data = get_passive_dns_history(domain)
-    page_data = analyze_page_metadata(f"http://{domain}") if is_url else {}
+    # Run the independent, network-bound sub-lookups concurrently. Each helper
+    # already catches its own errors and returns a dict, so results are safe.
+    # (find_similar_domains uses max_whois=0 — enrich only lists the matches.)
+    tasks = {
+        "whois": lambda: get_whois_info(domain),
+        "dns": lambda: resolve_dns(domain),
+        "host": lambda: get_hosting_info(domain),
+        "favicon": lambda: get_favicon_hash(domain),
+        "passive_dns": lambda: get_passive_dns_history(domain),
+        "ssl": lambda: get_ssl_cert_info(domain, verbose=True),
+        "lookalikes": lambda: find_similar_domains(domain, max_whois=0),
+    }
+    if is_url:
+        tasks["page_hash"] = lambda: get_page_hash(f"http://{domain}")
+        tasks["page_data"] = lambda: analyze_page_metadata(f"http://{domain}")
+
+    results: Dict[str, Any] = {}
+    with ThreadPoolExecutor(max_workers=len(tasks)) as pool:
+        futures = {pool.submit(fn): key for key, fn in tasks.items()}
+        for future in as_completed(futures):
+            key = futures[future]
+            try:
+                results[key] = future.result()
+            except Exception as e:  # noqa: BLE001 - defensive; helpers already guard
+                results[key] = {"error": str(e)}
+
+    dns_data = results.get("dns") or {}
     a_records = dns_data.get("A") if isinstance(dns_data, dict) else None
     ip = a_records[0] if a_records else None
-    geo_data = ip_geolocation(ip) if ip else {}
-    abuse_data = check_abuseipdb(ip) if ip else {}
-    threat_data = {"abuseipdb": abuse_data}
-    ssl_cert = get_ssl_cert_info(domain, verbose=True)
-    # Skip per-domain WHOIS here (slow, un-timed) — enrich only lists the matches.
-    lookalikes = find_similar_domains(domain, max_whois=0)
+
+    geo_data: Dict[str, Any] = {}
+    abuse_data: Dict[str, Any] = {}
+    if ip:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            geo_future = pool.submit(ip_geolocation, ip)
+            abuse_future = pool.submit(check_abuseipdb, ip)
+            try:
+                geo_data = geo_future.result()
+            except Exception:
+                geo_data = {}
+            try:
+                abuse_data = abuse_future.result()
+            except Exception:
+                abuse_data = {}
 
     enrichment_data = {
         "target": target,
         "domain": domain,
-        "whois": whois_data,
+        "whois": results.get("whois", {}),
         "dns": dns_data,
-        "host": host_data,
+        "host": results.get("host", {}),
         "ip_geolocation": geo_data,
-        "ssl_certificate": ssl_cert,
-        "passive_dns": passive_dns_data,
-        "threat_intel": threat_data,
-        "lookalike_domains": lookalikes,
-        "content_hash": page_hash,
-        "favicon": favicon_data,
-        "page_metadata": page_data,
+        "ssl_certificate": results.get("ssl", {}),
+        "passive_dns": results.get("passive_dns", {}),
+        "threat_intel": {"abuseipdb": abuse_data},
+        "lookalike_domains": results.get("lookalikes", []),
+        "content_hash": results.get("page_hash"),
+        "favicon": results.get("favicon", {}),
+        "page_metadata": results.get("page_data", {}) if is_url else {},
     }
 
     enrichment_data["risk_score"] = calculate_risk_score(enrichment_data)

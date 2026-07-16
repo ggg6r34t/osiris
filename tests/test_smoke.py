@@ -23,6 +23,7 @@ from osiris.api import (
 )
 from osiris.enrichment import calculate_risk_score, ip_in_blocklist
 from osiris.regex_generator import brand_label, generate_brand_regex
+from osiris.takedown import abuse_email, build_takedown_email
 from osiris.input_handler import parse_input
 from osiris.run_phishing_dorks import run_phishing_dorks
 from osiris.search_links import generate_search_links
@@ -157,6 +158,45 @@ def test_ip_in_blocklist_ignores_comment_and_blank_lines():
     blocklist = {"; Spamhaus DROP List 2024", "", "   ", "1.2.0.0/16"}
     assert ip_in_blocklist("1.2.3.4", blocklist) is True
     assert ip_in_blocklist("8.8.8.8", {"; comment only", "", "   "}) is False
+
+
+def test_takedown_email_builder():
+    enrichment = {
+        "domain": "evil-paypa1.com",
+        "whois": {"domain_info": {"registrar": "NameSilo"}},
+        "host": {
+            "ip": "1.2.3.4",
+            "asn": "AS123",
+            "hosted_by": "EVILNET",
+            "abuse_contact": {"email": "abuse@evilnet.example"},
+        },
+    }
+    mail = build_takedown_email(enrichment, reporter="CERT Team", brand="PayPal")
+    assert mail["to"] == "abuse@evilnet.example"
+    assert "evil-paypa1.com" in mail["subject"]
+    assert "1.2.3.4" in mail["body"] and "NameSilo" in mail["body"]
+    assert "PayPal" in mail["body"] and mail["body"].rstrip().endswith("CERT Team")
+
+
+def test_takedown_email_handles_missing_abuse_contact():
+    mail = build_takedown_email({"domain": "x.com", "host": {}, "whois": {}})
+    assert mail["to"] == ""  # no abuse contact -> empty To
+    assert "x.com" in mail["subject"]
+    assert abuse_email({"host": {"abuse_contact": {"email": "not-an-email"}}}) is None
+
+
+def test_cache_refresh_bypasses_cache():
+    calls = {"n": 0}
+
+    def producer():
+        calls["n"] += 1
+        return calls["n"]
+
+    key = "test:refresh:key"
+    assert _cached(key, producer) == 1
+    assert _cached(key, producer) == 1  # cached
+    assert _cached(key, producer, refresh=True) == 2  # bypassed + recomputed
+    assert calls["n"] == 2
 
 
 def test_cache_memoizes_producer():

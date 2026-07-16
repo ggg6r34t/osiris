@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { cloneDetect } from "@/lib/api";
 import type { CloneDetectResult } from "@/lib/types";
+import ExportRows from "./ExportRows";
 import { RunBar, ToolError, ToolLoading, useTool } from "./ui";
 
 export default function CloneDetectView() {
@@ -25,10 +26,25 @@ export default function CloneDetectView() {
       {!loading && error && <ToolError message={error} />}
 
       {!loading && data && (
-        <div className="animate-fade-in overflow-hidden rounded-xl border border-line bg-surface/60">
-          <div className="border-b border-line-soft px-4 py-2.5 font-mono text-[11px] uppercase tracking-wider text-fg-muted">
-            {data.clones.length} clone{data.clones.length === 1 ? "" : "s"} ·{" "}
-            {data.variants_checked} variants checked
+        <div className="animate-fade-in overflow-hidden rounded-2xl border border-line bg-surface/60 shadow-card">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line-soft px-4 py-2.5">
+            <span className="font-mono text-[11px] uppercase tracking-wider text-fg-muted">
+              {data.clones.length} clone{data.clones.length === 1 ? "" : "s"} ·{" "}
+              {data.variants_checked} variants checked
+            </span>
+            <div className="flex items-center gap-2">
+              <ExportRows
+                rows={data.clones.map((c) => ({ clone: c }))}
+                baseName={`clones-${domain}`}
+              />
+              <button
+                type="button"
+                onClick={() => run(() => cloneDetect(domain, true))}
+                className="rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-fg-muted hover:text-fg"
+              >
+                ↻ Refresh
+              </button>
+            </div>
           </div>
           {data.clones.length === 0 ? (
             <p className="px-4 py-10 text-center text-sm text-fg-muted">

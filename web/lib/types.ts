@@ -136,6 +136,27 @@ export type GenerateRegexResponse = {
   short: boolean;
 };
 
+export type BulkEnrichRow = {
+  domain: string;
+  risk_score?: number | null;
+  registrar?: string | null;
+  ip?: string | null;
+  country?: string | null;
+  lookalikes?: number;
+  error?: string;
+};
+
+export type BulkEnrichResponse = {
+  count: number;
+  results: BulkEnrichRow[];
+};
+
+export type TakedownEmail = {
+  to: string;
+  subject: string;
+  body: string;
+};
+
 export type DeepSearchResponse = {
   target: string;
   count: number;
