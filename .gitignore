@@ -47,6 +47,11 @@ Thumbs.db
 .idea/
 .vscode/
 
+# Local database (history, cases, watchlist, monitoring)
+osiris.db
+osiris.db-journal
+osiris.db-wal
+
 # Local config / secrets
 custom_platforms.json
 osiris.config.json

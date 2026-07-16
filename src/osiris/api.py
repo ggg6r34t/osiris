@@ -28,6 +28,7 @@ from osiris.platform_functions import (
 from osiris.regex_generator import LEVELS as REGEX_LEVELS
 from osiris.regex_generator import brand_label, generate_brand_regex
 from osiris.run_phishing_dorks import run_phishing_dorks
+from osiris import storage
 from osiris.search_links import generate_search_links
 from osiris.takedown import build_takedown_email
 from osiris.text_clone_search import text_clone_search
@@ -40,7 +41,7 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
-    allow_methods=["GET", "POST", "DELETE"],
+    allow_methods=["GET", "POST", "DELETE", "PATCH"],
     allow_headers=["*"],
 )
 
@@ -95,6 +96,14 @@ def _bounded(fn: Callable, timeout: int):
             detail=f"Timed out after {timeout}s — upstream data sources were too "
             "slow. Try again (results cache) or narrow the query.",
         )
+
+
+def _record(tool: str, input_value: str, summary: dict) -> None:
+    """Best-effort history logging — never let it break a tool call."""
+    try:
+        storage.add_history(tool, input_value, summary)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def _env_proxies() -> dict | None:
@@ -206,6 +215,7 @@ def search(req: SearchRequest):
             {"targets": targets, "links": len(results), "tag": req.tag},
         )
 
+    _record("search", ", ".join(targets), {"count": len(results)})
     return {"targets": targets, "count": len(results), "results": results}
 
 
@@ -446,11 +456,13 @@ def _valid_domain(domain: str) -> str:
 @app.post("/api/enrich")
 def api_enrich(req: DomainRequest):
     domain = _valid_domain(req.domain)
-    return _cached(
+    result = _cached(
         f"enrich:{domain}",
         lambda: _bounded(lambda: _run(enrich, f"http://{domain}"), 75),
         refresh=req.refresh,
     )
+    _record("enrich", domain, {"risk_score": (result or {}).get("risk_score")})
+    return result
 
 
 @app.post("/api/enrich-bulk")
@@ -499,6 +511,7 @@ def api_domain_match(req: DomainRequest):
         lambda: _bounded(lambda: _run(find_similar_domains, domain), 90),
         refresh=req.refresh,
     )
+    _record("domain-match", domain, {"matches": len(matches or [])})
     return {"domain": domain, "matches": matches}
 
 
@@ -510,6 +523,7 @@ def api_dnstwist(req: DomainRequest):
         lambda: _bounded(lambda: _run(run_dnstwist, domain) or [], 210),
         refresh=req.refresh,
     )
+    _record("dnstwist", domain, {"permutations": len(results or [])})
     return {"domain": domain, "results": results}
 
 
@@ -522,7 +536,9 @@ def api_clone_detect(req: DomainRequest):
         clones = _run(detect_clones, domain, variants)
         return {"domain": domain, "variants_checked": len(variants), "clones": clones}
 
-    return _cached(f"clone-detect:{domain}", lambda: _bounded(_produce, 120), refresh=req.refresh)
+    result = _cached(f"clone-detect:{domain}", lambda: _bounded(_produce, 120), refresh=req.refresh)
+    _record("clone-detect", domain, {"clones": len((result or {}).get("clones") or [])})
+    return result
 
 
 class ScreenshotRequest(BaseModel):
@@ -639,11 +655,13 @@ def api_deep_search(req: DeepSearchRequest):
 
         return {"target": target, "results": results, "count": len(links), "links": links}
 
-    return _cached(
+    result = _cached(
         f"deep-search:{target}:{req.score}",
         lambda: _bounded(_produce, 200),
         refresh=req.refresh,
     )
+    _record("deep-search", target, {"count": (result or {}).get("count", 0)})
+    return result
 
 
 # --------------------------------------------------------------------------- #
@@ -765,8 +783,89 @@ def api_brand_abuse(req: RegexRequest):
         results = _normalize_panda(resp.json())
         return {"regex": regex, "count": len(results), "results": results}
 
-    return _cached(
+    result = _cached(
         f"brand-abuse:{req.id_only}:{regex}",
         lambda: _bounded(lambda: _run(_produce), 60),
         refresh=req.refresh,
     )
+    _record("brand-abuse", regex, {"count": (result or {}).get("count", 0)})
+    return result
+
+
+# --------------------------------------------------------------------------- #
+# History + Cases (local SQLite persistence)
+# --------------------------------------------------------------------------- #
+class CaseCreate(BaseModel):
+    name: str
+    note: str = ""
+
+
+class CaseItemCreate(BaseModel):
+    kind: str = "note"
+    data: dict | str = ""
+    note: str = ""
+    status: str = "open"
+
+
+class CaseItemUpdate(BaseModel):
+    note: str | None = None
+    status: str | None = None
+
+
+@app.get("/api/history")
+def get_history(limit: int = 100):
+    return {"history": storage.list_history(limit=limit)}
+
+
+@app.delete("/api/history")
+def delete_history():
+    storage.clear_history()
+    return {"ok": True}
+
+
+@app.get("/api/cases")
+def get_cases():
+    return {"cases": storage.list_cases()}
+
+
+@app.post("/api/cases")
+def create_case(req: CaseCreate):
+    name = req.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="Case name is required.")
+    case_id = storage.create_case(name, req.note)
+    return storage.get_case(case_id)
+
+
+@app.get("/api/cases/{case_id}")
+def read_case(case_id: int):
+    case = storage.get_case(case_id)
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found.")
+    return case
+
+
+@app.delete("/api/cases/{case_id}")
+def remove_case(case_id: int):
+    storage.delete_case(case_id)
+    return {"ok": True}
+
+
+@app.post("/api/cases/{case_id}/items")
+def add_item(case_id: int, req: CaseItemCreate):
+    if not storage.get_case(case_id):
+        raise HTTPException(status_code=404, detail="Case not found.")
+    storage.add_case_item(case_id, req.kind, req.data, req.note, req.status)
+    return storage.get_case(case_id)
+
+
+@app.patch("/api/cases/items/{item_id}")
+def patch_item(item_id: int, req: CaseItemUpdate):
+    storage.update_case_item(item_id, req.note, req.status)
+    return {"ok": True}
+
+
+@app.delete("/api/cases/items/{item_id}")
+def remove_item(item_id: int):
+    storage.delete_case_item(item_id)
+    return {"ok": True}

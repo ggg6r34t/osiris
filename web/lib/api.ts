@@ -5,8 +5,11 @@ import type {
   RegexLevel,
   CheckResult,
   CloneDetectResult,
+  CaseDetail,
+  CaseSummary,
   CustomPlatformMap,
   DeepSearchResponse,
+  HistoryEntry,
   DnstwistEntry,
   DomainMatch,
   EnrichResult,
@@ -258,4 +261,60 @@ export function generateRegex(
     method: "POST",
     body: JSON.stringify({ value, level }),
   });
+}
+
+// ---- History + Cases (persistence) ----
+export async function getHistory(limit = 100): Promise<HistoryEntry[]> {
+  const d = await jsonFetch<{ history: HistoryEntry[] }>(
+    `/api/history?limit=${limit}`,
+  );
+  return d.history;
+}
+
+export async function clearHistory(): Promise<void> {
+  await jsonFetch("/api/history", { method: "DELETE" });
+}
+
+export async function getCases(): Promise<CaseSummary[]> {
+  const d = await jsonFetch<{ cases: CaseSummary[] }>("/api/cases");
+  return d.cases;
+}
+
+export function createCase(name: string, note = ""): Promise<CaseDetail> {
+  return jsonFetch<CaseDetail>("/api/cases", {
+    method: "POST",
+    body: JSON.stringify({ name, note }),
+  });
+}
+
+export function getCase(id: number): Promise<CaseDetail> {
+  return jsonFetch<CaseDetail>(`/api/cases/${id}`);
+}
+
+export async function deleteCase(id: number): Promise<void> {
+  await jsonFetch(`/api/cases/${id}`, { method: "DELETE" });
+}
+
+export function addCaseItem(
+  caseId: number,
+  item: { kind: string; data: unknown; note?: string; status?: string },
+): Promise<CaseDetail> {
+  return jsonFetch<CaseDetail>(`/api/cases/${caseId}/items`, {
+    method: "POST",
+    body: JSON.stringify(item),
+  });
+}
+
+export async function updateCaseItem(
+  itemId: number,
+  patch: { note?: string; status?: string },
+): Promise<void> {
+  await jsonFetch(`/api/cases/items/${itemId}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function deleteCaseItem(itemId: number): Promise<void> {
+  await jsonFetch(`/api/cases/items/${itemId}`, { method: "DELETE" });
 }

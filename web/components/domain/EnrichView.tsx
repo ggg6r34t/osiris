@@ -4,6 +4,7 @@ import { useState } from "react";
 import { enrichBulk, enrichDomain, takedown } from "@/lib/api";
 import { triggerDownload } from "@/lib/export";
 import type { BulkEnrichResponse, EnrichResult, TakedownEmail } from "@/lib/types";
+import AddToCase from "../AddToCase";
 import CopyButton from "../CopyButton";
 import { DownloadIcon } from "../icons";
 import ExportRows from "./ExportRows";
@@ -125,6 +126,10 @@ function EnrichResultView({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-mono text-sm text-fg-muted">{data.domain}</span>
         <div className="flex items-center gap-2">
+          <AddToCase
+            kind="domain"
+            data={{ domain: data.domain, risk_score: data.risk_score }}
+          />
           <button
             type="button"
             onClick={onRefresh}

@@ -160,6 +160,49 @@ def test_ip_in_blocklist_ignores_comment_and_blank_lines():
     assert ip_in_blocklist("8.8.8.8", {"; comment only", "", "   "}) is False
 
 
+def test_storage_history_and_cases(tmp_path, monkeypatch):
+    import osiris.storage as st
+
+    monkeypatch.setattr(st, "DB_PATH", str(tmp_path / "t.db"))
+    monkeypatch.setattr(st, "_conn", None)
+
+    st.add_history("enrich", "a.com", {"risk_score": 5})
+    hist = st.list_history()
+    assert hist[0]["tool"] == "enrich" and hist[0]["summary"]["risk_score"] == 5
+
+    cid = st.create_case("Case 1", "note")
+    st.add_case_item(cid, "domain", {"domain": "evil.com"}, "", "open")
+    case = st.get_case(cid)
+    assert case["name"] == "Case 1" and len(case["items"]) == 1
+    item_id = case["items"][0]["id"]
+    assert case["items"][0]["data"] == {"domain": "evil.com"}
+
+    st.update_case_item(item_id, note="suspicious", status="escalate")
+    assert st.get_case(cid)["items"][0]["status"] == "escalate"
+
+    assert st.list_cases()[0]["item_count"] == 1
+    st.delete_case(cid)
+    assert st.get_case(cid) is None
+
+
+def test_storage_watchlist_and_snapshots(tmp_path, monkeypatch):
+    import osiris.storage as st
+
+    monkeypatch.setattr(st, "DB_PATH", str(tmp_path / "s.db"))
+    monkeypatch.setattr(st, "_conn", None)
+
+    assert st.latest_snapshot("x.com", "dnstwist") is None
+    st.save_snapshot("x.com", "dnstwist", ["a", "b"])
+    st.save_snapshot("x.com", "dnstwist", ["a", "b", "c"])
+    assert st.latest_snapshot("x.com", "dnstwist") == ["a", "b", "c"]
+
+    st.add_watch("x.com")
+    st.add_watch("x.com")  # idempotent (UNIQUE)
+    assert len(st.list_watch()) == 1
+    st.remove_watch("x.com")
+    assert st.list_watch() == []
+
+
 def test_takedown_email_builder():
     enrichment = {
         "domain": "evil-paypa1.com",

@@ -127,6 +127,40 @@ export type BrandAbuseResponse = {
   results: BrandAbuseMatch[];
 };
 
+export type HistoryEntry = {
+  id: number;
+  tool: string;
+  input: string;
+  summary: Record<string, unknown>;
+  ts: number;
+};
+
+export type CaseSummary = {
+  id: number;
+  name: string;
+  note: string;
+  ts: number;
+  item_count: number;
+};
+
+export type CaseItem = {
+  id: number;
+  case_id: number;
+  kind: string;
+  data: Record<string, unknown>;
+  note: string;
+  status: string;
+  ts: number;
+};
+
+export type CaseDetail = {
+  id: number;
+  name: string;
+  note: string;
+  ts: number;
+  items: CaseItem[];
+};
+
 export type RegexLevel = "conservative" | "balanced" | "aggressive";
 
 export type GenerateRegexResponse = {
