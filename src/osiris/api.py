@@ -17,7 +17,7 @@ from osiris.config import apply_proxy_env
 from osiris.data.platforms import PLATFORM_TEMPLATES
 from osiris.dnstwist import run_dnstwist
 from osiris.domain_matcher import find_similar_domains
-from osiris.enrichment import enrich, is_valid_domain, normalize_domain
+from osiris.enrichment import enrich, ip_pivot, is_valid_domain, normalize_domain
 from osiris.input_handler import parse_input
 from osiris.logger import log_event, log_search_history
 from osiris.platform_functions import (
@@ -501,6 +501,18 @@ def api_enrich_bulk(req: BulkEnrichRequest):
     with ThreadPoolExecutor(max_workers=min(3, len(domains))) as pool:
         rows = list(pool.map(_one, domains))
     return {"count": len(rows), "results": rows}
+
+
+@app.post("/api/ip-pivot")
+def api_ip_pivot(req: DomainRequest):
+    domain = _valid_domain(req.domain)
+    result = _cached(
+        f"ip-pivot:{domain}",
+        lambda: _bounded(lambda: _run(ip_pivot, domain), 60),
+        refresh=req.refresh,
+    )
+    _record("ip-pivot", domain, {"domains": (result or {}).get("domain_count", 0)})
+    return result
 
 
 @app.post("/api/domain-match")

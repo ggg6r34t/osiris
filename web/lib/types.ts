@@ -95,6 +95,29 @@ export type EnrichResult = {
   favicon?: { favicon_url?: string; favicon_hash_md5?: string; error?: string };
   page_metadata?: { title?: string; phishing_keywords_found?: boolean };
   content_hash?: string | null;
+  threat_intel?: {
+    abuseipdb?: { abuseConfidenceScore?: number } & Record<string, unknown>;
+    virustotal?: {
+      malicious?: number;
+      suspicious?: number;
+      harmless?: number;
+      undetected?: number;
+      reputation?: number;
+      error?: string;
+    };
+    urlscan?: { scans?: number; recent?: string[] };
+  };
+};
+
+export type IpPivotResult = {
+  target: string;
+  ip: string | null;
+  asn?: string | null;
+  network?: string | null;
+  country?: string | null;
+  domain_count?: number;
+  domains?: string[];
+  error?: string;
 };
 
 export type DnstwistEntry = {

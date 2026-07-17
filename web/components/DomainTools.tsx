@@ -7,10 +7,12 @@ import DnstwistView from "./domain/DnstwistView";
 import CloneDetectView from "./domain/CloneDetectView";
 import DeepSearchView from "./domain/DeepSearchView";
 import BrandAbuseView from "./domain/BrandAbuseView";
+import IpPivotView from "./domain/IpPivotView";
 import { PhishingDorksView, TextCloneView } from "./domain/LinkToolView";
 
 type ToolKey =
   | "enrich"
+  | "ip-pivot"
   | "domain-match"
   | "dnstwist"
   | "clone-detect"
@@ -21,6 +23,7 @@ type ToolKey =
 
 const TOOLS: { key: ToolKey; label: string; blurb: string }[] = [
   { key: "enrich", label: "Enrich", blurb: "WHOIS · DNS · hosting · SSL · risk" },
+  { key: "ip-pivot", label: "IP Pivot", blurb: "Reverse-IP · co-hosted domains" },
   { key: "domain-match", label: "Domain Match", blurb: "Registered lookalikes" },
   { key: "dnstwist", label: "DNSTwist", blurb: "Permutation scan" },
   { key: "clone-detect", label: "Clone Detect", blurb: "Byte-identical clones" },
@@ -56,6 +59,7 @@ export default function DomainTools() {
       <p className="-mt-2 font-mono text-xs text-fg-faint">{active.blurb}</p>
 
       {tool === "enrich" && <EnrichView />}
+      {tool === "ip-pivot" && <IpPivotView />}
       {tool === "domain-match" && <DomainMatchView />}
       {tool === "dnstwist" && <DnstwistView />}
       {tool === "clone-detect" && <CloneDetectView />}

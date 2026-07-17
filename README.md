@@ -206,7 +206,8 @@ into three tabs:
   "reachable only" filter), copy, and CSV/JSON/TXT export.
 - **Domain Tools** — the domain-intelligence modes: **Enrich** (WHOIS/DNS/hosting/SSL/favicon/threat-intel with a
   computed risk score), **Domain Match** (certificate-transparency lookalikes), **DNSTwist** (permutation scan),
-  **Clone Detect** (byte-identical typosquat clones), **Brand Abuse (regex)** (regex search over the internal Panda
+  **IP Pivot** (reverse-IP: other domains co-hosted on the same IP + ASN/host facts), **Clone Detect**
+  (byte-identical typosquat clones), **Brand Abuse (regex)** (regex search over the internal Panda
   dataset, with a built-in **Generate regex from a brand** helper that turns a brand/domain into a
   homoglyph/typosquat pattern), **Text Clone** and **Phishing Dorks** (dork-link builders), and **Deep Search** (all of the above
   combined). These make outbound network calls and can be slow; results are cached in-process for ~1 hour so
@@ -253,7 +254,9 @@ Copy `.env.example` to `.env` (gitignored) and fill in what you need — `run.sh
 
 - **Brand Abuse (regex) tool** requires the internal Panda API (VPN): `OSIRIS_PANDA_URL`, `OSIRIS_PANDA_LOGIN`,
   `OSIRIS_PANDA_KEY`. Without them the tool returns a clear "not configured" message.
-- **Enrichment** API keys (optional, degrade gracefully): `ABUSEIPDB_API_KEY`, `SECURITYTRAILS_API_KEY`, `IPINFO_TOKEN`.
+- **Enrichment** API keys (optional, degrade gracefully): `ABUSEIPDB_API_KEY`, `SECURITYTRAILS_API_KEY`, `IPINFO_TOKEN`,
+  `VIRUSTOTAL_API_KEY` (adds VirusTotal detections + reputation to Enrich and the risk score). urlscan.io reputation
+  and IP-Pivot reverse-IP work without keys (rate-limited).
 - **Screenshots** (optional) — capture suspect/lookalike/clone pages headlessly. Install once:
   `pip install -r requirements-screenshots.txt && playwright install chromium`. Without it, the camera button
   shows a clear "install to enable" message and nothing else is affected.

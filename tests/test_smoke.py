@@ -203,6 +203,51 @@ def test_storage_watchlist_and_snapshots(tmp_path, monkeypatch):
     assert st.list_watch() == []
 
 
+def test_virustotal_and_urlscan_graceful(monkeypatch):
+    import osiris.enrichment as en
+
+    monkeypatch.delenv("VIRUSTOTAL_API_KEY", raising=False)
+    assert en.check_virustotal("example.com") == {}  # no key → empty, no crash
+
+
+def test_reverse_ip_parsing(monkeypatch):
+    import osiris.enrichment as en
+
+    class FakeResp:
+        ok = True
+        text = "a.com\nb.com\n a.com \n\nnot_a_host\n"
+
+    monkeypatch.setattr(en, "http_get", lambda *a, **k: FakeResp())
+    assert en.reverse_ip("1.2.3.4") == ["a.com", "b.com"]
+
+    class ErrResp:
+        ok = True
+        text = "error: API count exceeded"
+
+    monkeypatch.setattr(en, "http_get", lambda *a, **k: ErrResp())
+    assert en.reverse_ip("1.2.3.4") == []
+
+
+def test_ip_pivot_shape(monkeypatch):
+    import osiris.enrichment as en
+
+    monkeypatch.setattr(en.socket, "gethostbyname", lambda d: "9.9.9.9")
+    monkeypatch.setattr(en, "get_hosting_info", lambda d: {"asn": "AS42", "hosted_by": "NET", "geolocation": {"country": "US"}})
+    monkeypatch.setattr(en, "reverse_ip", lambda ip: ["a.com", "b.com"])
+    r = en.ip_pivot("evil.com")
+    assert r["ip"] == "9.9.9.9" and r["asn"] == "AS42"
+    assert r["domain_count"] == 2 and r["domains"] == ["a.com", "b.com"]
+
+
+def test_vt_raises_risk_score():
+    from osiris.enrichment import calculate_risk_score
+
+    base = {"whois": {}, "ssl_certificate": {}, "page_metadata": {}, "host": {}}
+    lo = calculate_risk_score({**base, "threat_intel": {"virustotal": {"malicious": 0}}})
+    hi = calculate_risk_score({**base, "threat_intel": {"virustotal": {"malicious": 9}}})
+    assert hi - lo == 20
+
+
 def test_monitor_diff_pure():
     from osiris.monitor import diff
 

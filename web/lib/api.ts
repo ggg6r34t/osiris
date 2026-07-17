@@ -13,6 +13,7 @@ import type {
   DnstwistEntry,
   DomainMatch,
   EnrichResult,
+  IpPivotResult,
   MonitorReport,
   PlatformsResponse,
   SearchOptions,
@@ -174,6 +175,13 @@ export function takedown(
   return jsonFetch<TakedownEmail>("/api/takedown", {
     method: "POST",
     body: JSON.stringify({ enrichment, brand, reporter }),
+  });
+}
+
+export function ipPivot(domain: string, refresh = false): Promise<IpPivotResult> {
+  return jsonFetch<IpPivotResult>("/api/ip-pivot", {
+    method: "POST",
+    body: JSON.stringify({ domain, refresh }),
   });
 }
 

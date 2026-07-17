@@ -208,6 +208,42 @@ function EnrichResultView({
           )}
         </Card>
 
+        <Card title="Reputation">
+          {(() => {
+            const vt = data.threat_intel?.virustotal;
+            const us = data.threat_intel?.urlscan;
+            const hasVt = vt && vt.error === undefined && (vt.malicious ?? vt.harmless) !== undefined;
+            return (
+              <>
+                {hasVt ? (
+                  <>
+                    <KV
+                      k="VT detections"
+                      v={
+                        <span className={(vt!.malicious ?? 0) > 0 ? "text-danger" : "text-fg"}>
+                          {vt!.malicious ?? 0} malicious · {vt!.suspicious ?? 0} suspicious ·{" "}
+                          {vt!.harmless ?? 0} harmless
+                        </span>
+                      }
+                    />
+                    <KV k="VT reputation" v={String(vt!.reputation ?? "—")} />
+                  </>
+                ) : (
+                  <KV
+                    k="VirusTotal"
+                    v={
+                      <span className="text-fg-faint">
+                        {vt?.error ? vt.error : "set VIRUSTOTAL_API_KEY to enable"}
+                      </span>
+                    }
+                  />
+                )}
+                <KV k="urlscan.io scans" v={us?.scans !== undefined ? String(us.scans) : "—"} />
+              </>
+            );
+          })()}
+        </Card>
+
         <Card title="Page / Favicon">
           <KV k="Title" v={data.page_metadata?.title} />
           <KV

@@ -325,6 +325,98 @@ def check_abuseipdb(ip: str):
     except Exception as e:
         return {"error": str(e)}
 
+
+def check_virustotal(domain: str) -> dict:
+    """VirusTotal domain reputation (opt-in via VIRUSTOTAL_API_KEY)."""
+    api_key = os.getenv("VIRUSTOTAL_API_KEY")
+    if not api_key:
+        return {}
+    try:
+        r = http_get(
+            f"https://www.virustotal.com/api/v3/domains/{domain}",
+            headers={"x-apikey": api_key},
+        )
+        if not r.ok:
+            return {"error": f"HTTP {r.status_code}"}
+        attr = r.json().get("data", {}).get("attributes", {})
+        stats = attr.get("last_analysis_stats", {}) or {}
+        return {
+            "malicious": stats.get("malicious", 0),
+            "suspicious": stats.get("suspicious", 0),
+            "harmless": stats.get("harmless", 0),
+            "undetected": stats.get("undetected", 0),
+            "reputation": attr.get("reputation"),
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def check_urlscan(domain: str) -> dict:
+    """urlscan.io recent scans for a domain (free search API, no key)."""
+    try:
+        r = http_get(f"https://urlscan.io/api/v1/search/?q=domain:{domain}&size=10")
+        if not r.ok:
+            return {}
+        results = r.json().get("results", []) or []
+        return {
+            "scans": len(results),
+            "recent": [
+                x.get("page", {}).get("url")
+                for x in results[:5]
+                if isinstance(x, dict) and x.get("page")
+            ],
+        }
+    except Exception:
+        return {}
+
+
+def _looks_like_ip(value: str) -> bool:
+    try:
+        ipaddress.ip_address(value)
+        return True
+    except ValueError:
+        return False
+
+
+def reverse_ip(ip: str) -> list[str]:
+    """Other domains hosted on the same IP (HackerTarget free API, rate-limited)."""
+    try:
+        r = http_get(f"https://api.hackertarget.com/reverseiplookup/?q={ip}")
+        if not r.ok:
+            return []
+        text = (r.text or "").strip()
+        low = text.lower()
+        if not text or "error" in low or "api count exceeded" in low:
+            return []
+        return sorted({ln.strip() for ln in text.splitlines() if ln.strip() and "." in ln})
+    except Exception:
+        return []
+
+
+def ip_pivot(target: str) -> dict:
+    """Resolve a domain/IP → IP + ASN/host facts + other domains on the same IP."""
+    value = normalize_domain(target)
+    is_ip = _looks_like_ip(value)
+    ip = value if is_ip else None
+    if not ip:
+        try:
+            ip = socket.gethostbyname(value)
+        except Exception:
+            return {"target": value, "ip": None, "error": "Could not resolve to an IP."}
+
+    host = {} if is_ip else get_hosting_info(value)
+    domains = reverse_ip(ip)
+    return {
+        "target": value,
+        "ip": ip,
+        "asn": host.get("asn"),
+        "network": host.get("hosted_by"),
+        "country": (host.get("geolocation") or {}).get("country"),
+        "domain_count": len(domains),
+        "domains": domains,
+    }
+
+
 def save_report(results: list, base_filename: str):
     if not results:
         return None, None
@@ -412,6 +504,15 @@ def calculate_risk_score(data):
     if isinstance(abuse_info, dict) and abuse_info.get("abuseConfidenceScore", 0) >= 50:
         score += 15
 
+    # VirusTotal detections
+    vt = data.get("threat_intel", {}).get("virustotal", {})
+    if isinstance(vt, dict):
+        malicious = vt.get("malicious") or 0
+        if malicious >= 5:
+            score += 20
+        elif malicious >= 1:
+            score += 10
+
     # Metadata phishing keywords
     if page_meta.get("phishing_keywords_found"):
         score += 15
@@ -445,6 +546,8 @@ def enrich(target: str, is_url: bool = False):
         "passive_dns": lambda: get_passive_dns_history(domain),
         "ssl": lambda: get_ssl_cert_info(domain, verbose=True),
         "lookalikes": lambda: find_similar_domains(domain, max_whois=0),
+        "virustotal": lambda: check_virustotal(domain),
+        "urlscan": lambda: check_urlscan(domain),
     }
     if is_url:
         tasks["page_hash"] = lambda: get_page_hash(f"http://{domain}")
@@ -488,7 +591,11 @@ def enrich(target: str, is_url: bool = False):
         "ip_geolocation": geo_data,
         "ssl_certificate": results.get("ssl", {}),
         "passive_dns": results.get("passive_dns", {}),
-        "threat_intel": {"abuseipdb": abuse_data},
+        "threat_intel": {
+            "abuseipdb": abuse_data,
+            "virustotal": results.get("virustotal", {}),
+            "urlscan": results.get("urlscan", {}),
+        },
         "lookalike_domains": results.get("lookalikes", []),
         "content_hash": results.get("page_hash"),
         "favicon": results.get("favicon", {}),
