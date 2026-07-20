@@ -260,6 +260,11 @@ organized into sections — **Search**, **Domain Tools**, **VIP**, **Cases**, **
   **Received** hop chain and best-guess **originating IP**, **From / Reply-To / Return-Path / display-name spoofing**
   flags, executable/macro attachment detection (name/type/size + hashes), and extracted IOCs — rolled up into a
   risk level. Add the findings to a case.
+- **Playbooks** — guided workflows that chain the individual tools into one run and file the result to a case.
+  **Domain / phishing assessment** runs Enrich → Page analysis → Reputation → Abuse routing on a single domain,
+  rolls the signals into an overall risk verdict, and auto-opens a tracked takedown when high-risk. **Brand-abuse
+  discovery** runs Domain Match + DNSTwist for a brand and files the candidate lookalikes to a case. Each step is
+  isolated (one failing never aborts the run), and every run ends with recommended next actions.
 - **VIP Investigation** — a protective-intelligence exposure scorecard for a person (executive-protection / DRP).
   Enter a VIP (name/aliases, emails, known handles, company, country) and Osiris scores four dimensions
   **High / Medium / Low** — online-presence volume (cross-platform handle resolution), service-account

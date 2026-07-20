@@ -6,6 +6,7 @@ export type TabKey =
   | "search"
   | "domain"
   | "intake"
+  | "playbooks"
   | "vip"
   | "cases"
   | "custom"

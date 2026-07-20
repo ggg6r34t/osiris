@@ -11,6 +11,7 @@ import SettingsPanel from "@/components/SettingsPanel";
 import CustomPlatforms from "@/components/CustomPlatforms";
 import DomainTools from "@/components/DomainTools";
 import IntakeTools from "@/components/IntakeTools";
+import PlaybooksView from "@/components/PlaybooksView";
 import VipView from "@/components/VipView";
 import Workspace from "@/components/Workspace";
 import {
@@ -19,6 +20,7 @@ import {
   CasesIcon,
   InboxIcon,
   LayersIcon,
+  PlaybookIcon,
   SearchIcon,
   SlidersIcon,
   VipIcon,
@@ -34,6 +36,7 @@ const NAV_ITEMS = [
   { key: "search" as const, label: "Search", icon: <SearchIcon className="h-5 w-5" /> },
   { key: "domain" as const, label: "Domain Tools", icon: <BoltIcon className="h-5 w-5" /> },
   { key: "intake" as const, label: "Intake", icon: <InboxIcon className="h-5 w-5" /> },
+  { key: "playbooks" as const, label: "Playbooks", icon: <PlaybookIcon className="h-5 w-5" /> },
   { key: "vip" as const, label: "VIP", icon: <VipIcon className="h-5 w-5" /> },
   { key: "cases" as const, label: "Cases", icon: <CasesIcon className="h-5 w-5" /> },
   { key: "custom" as const, label: "Custom Platforms", icon: <LayersIcon className="h-5 w-5" /> },
@@ -52,6 +55,10 @@ const SECTIONS: Record<TabKey, { title: string; desc: string }> = {
   intake: {
     title: "Intake",
     desc: "Turn reports into structured intelligence — extract IOCs and export STIX / MISP.",
+  },
+  playbooks: {
+    title: "Playbooks",
+    desc: "Guided workflows that chain the tools into one run — assess a domain or discover brand abuse, filed to a case.",
   },
   vip: {
     title: "VIP Investigation",
@@ -205,6 +212,8 @@ export default function Home() {
             {tab === "domain" && <DomainTools />}
 
             {tab === "intake" && <IntakeTools />}
+
+            {tab === "playbooks" && <PlaybooksView />}
 
             {tab === "vip" && <VipView />}
 

@@ -473,6 +473,52 @@ def test_vip_assess_shape_offline(monkeypatch):
     assert sc["presence"]["mention"]["configured"] is False
 
 
+def test_playbook_assess_orchestration(tmp_path, monkeypatch):
+    import osiris.storage as st
+    import osiris.playbooks as pb
+    import osiris.enrichment as en
+    import osiris.url_analyzer as ua
+    import osiris.feeds as fe
+    import osiris.abuse_router as ar
+
+    monkeypatch.setattr(st, "DB_PATH", str(tmp_path / "pb.db"))
+    monkeypatch.setattr(st, "_conn", None)
+    monkeypatch.setattr(en, "enrich", lambda url: {"risk_score": 85})
+    monkeypatch.setattr(ua, "analyze_url", lambda url: {"reachable": True, "risk": "high", "credential_forms": 1, "flags": [{"level": "high", "text": "cross-domain form"}]})
+    monkeypatch.setattr(fe, "check_reputation", lambda d: {"verdict": "listed", "listed_count": 2, "sources": [{"source": "URLhaus", "listed": True}]})
+    monkeypatch.setattr(ar, "route_abuse", lambda d: {"verdict": {"state": "live", "label": "Live"}, "registrar": {"abuse_email": "abuse@reg.test"}, "hosting": {}, "escalation": [{"order": 1, "target": "Registrar", "label": "Reg", "method": "email", "value": "abuse@reg.test"}]})
+
+    r = pb.run_playbook("assess", "evil.com")
+    assert r["risk"]["level"] == "high"
+    assert r["case_id"] and r["takedown_id"]  # high risk opens a takedown
+    assert [s["status"] for s in r["steps"]] == ["ok", "ok", "ok", "ok"]
+    assert st.get_takedown(r["takedown_id"])["contact"] == "abuse@reg.test"
+    assert len(st.get_case(r["case_id"])["items"]) == 4
+
+
+def test_playbook_brand_and_isolation(tmp_path, monkeypatch):
+    import osiris.storage as st
+    import osiris.playbooks as pb
+    import osiris.domain_matcher as dm
+    import osiris.dnstwist as dt
+
+    monkeypatch.setattr(st, "DB_PATH", str(tmp_path / "pb2.db"))
+    monkeypatch.setattr(st, "_conn", None)
+    monkeypatch.setattr(dm, "find_similar_domains", lambda d, max_whois=0: [{"domain": "evi1.com"}])
+    # one step raises → must not abort the run
+    def boom(_d):
+        raise RuntimeError("dnstwist down")
+    monkeypatch.setattr(dt, "run_dnstwist", boom)
+
+    r = pb.run_playbook("brand", "evil.com")
+    assert r["candidates"] == ["evi1.com"]
+    assert any(s["status"] == "error" for s in r["steps"])  # dnstwist failed gracefully
+    assert r["case_id"]
+
+    with pytest.raises(ValueError):
+        pb.run_playbook("nope", "x.com")
+
+
 def test_netguard_blocks_private_and_schemes(monkeypatch):
     import osiris.netguard as ng
 

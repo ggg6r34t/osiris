@@ -17,6 +17,8 @@ import type {
   IocExtractResult,
   IocSet,
   Metrics,
+  PlaybookDef,
+  PlaybookReport,
   DnstwistEntry,
   DomainMatch,
   EnrichResult,
@@ -427,6 +429,18 @@ export function analyzeEmail(raw: string): Promise<EmailAnalysis> {
 
 export function getMetrics(): Promise<Metrics> {
   return jsonFetch<Metrics>("/api/metrics");
+}
+
+export async function getPlaybooks(): Promise<PlaybookDef[]> {
+  const d = await jsonFetch<{ playbooks: PlaybookDef[] }>("/api/playbooks");
+  return d.playbooks;
+}
+
+export function runPlaybook(playbook: string, target: string): Promise<PlaybookReport> {
+  return jsonFetch<PlaybookReport>("/api/playbooks/run", {
+    method: "POST",
+    body: JSON.stringify({ playbook, target }),
+  });
 }
 
 // --- Takedown lifecycle tracking ---

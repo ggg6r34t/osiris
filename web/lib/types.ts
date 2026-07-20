@@ -426,6 +426,34 @@ export type Takedown = {
   status_changed?: boolean;
 };
 
+export type PlaybookDef = {
+  id: string;
+  name: string;
+  description: string;
+  target_label: string;
+};
+
+export type PlaybookStep = {
+  key: string;
+  label: string;
+  status: "ok" | "error" | "skipped";
+  summary: string;
+  error: string | null;
+  data: unknown;
+};
+
+export type PlaybookReport = {
+  playbook: string;
+  name: string;
+  target: string;
+  steps: PlaybookStep[];
+  risk: { level: "high" | "medium" | "low" | "unknown"; reasons: string[] };
+  case_id: number | null;
+  takedown_id: number | null;
+  candidates?: string[];
+  recommendations: string[];
+};
+
 export type Metrics = {
   takedowns: {
     total: number;

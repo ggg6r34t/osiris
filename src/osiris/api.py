@@ -1147,6 +1147,35 @@ def api_metrics():
     return storage.metrics()
 
 
+# --------------------------------------------------------------------------- #
+# Playbooks — guided multi-step workflows
+# --------------------------------------------------------------------------- #
+class PlaybookRunRequest(BaseModel):
+    playbook: str
+    target: str
+
+
+@app.get("/api/playbooks")
+def api_playbooks():
+    from osiris.playbooks import list_playbooks
+
+    return {"playbooks": list_playbooks()}
+
+
+@app.post("/api/playbooks/run")
+def api_playbook_run(req: PlaybookRunRequest):
+    from osiris.playbooks import PLAYBOOKS, run_playbook
+
+    if req.playbook not in PLAYBOOKS:
+        raise HTTPException(status_code=422, detail=f"Unknown playbook: {req.playbook}")
+    target = (req.target or "").strip()
+    if not target:
+        raise HTTPException(status_code=422, detail="A target is required.")
+    report = _bounded(lambda: _run(run_playbook, req.playbook, target), 300)
+    _record("playbook", target, {"playbook": req.playbook, "risk": (report.get("risk") or {}).get("level")})
+    return report
+
+
 @app.post("/api/reputation")
 def api_reputation(req: DomainRequest):
     from osiris.feeds import check_reputation

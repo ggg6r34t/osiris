@@ -102,6 +102,10 @@ Key modules and how they relate:
   `osiris --monitor` (cron).
 - **`notify.py`** — opt-in alerting (Telegram + generic webhook), a no-op when unconfigured. `notify_new_findings`
   is called from `run_monitor`; `channels()`/`notify()` back the `/api/notify/*` endpoints.
+- **`playbooks.py`** — orchestration layer: `run_playbook(id, target)` chains existing tools into one workflow
+  (`assess`: enrich → url_analyzer → feeds → abuse_router → case + auto-takedown-if-high; `brand`: domain_matcher
+  + dnstwist → case), with isolated steps (one failing never aborts), a risk rollup, and recommendations. Backs the
+  Playbooks section (`GET /api/playbooks`, `POST /api/playbooks/run`). Adding a playbook = a runner + a PLAYBOOKS entry.
 - **`netguard.py`** — SSRF guard. `assert_url_allowed()` / `assert_host_allowed()` reject non-http(s) schemes and
   hosts that resolve to private/loopback/link-local (incl. `169.254.169.254` metadata)/reserved/multicast
   addresses, raising `BlockedTargetError`. Wired into `enrichment.http_get` (covers Enrich), `url_analyzer`,

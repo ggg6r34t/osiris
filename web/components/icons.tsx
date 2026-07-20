@@ -163,6 +163,15 @@ export function BoltIcon(props: IconProps) {
   );
 }
 
+export function PlaybookIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M5 4h11l3 3v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z" />
+      <path d="M10 10.5 13 13l-3 2.5z" />
+    </svg>
+  );
+}
+
 export function InboxIcon(props: IconProps) {
   return (
     <svg {...base} {...props}>
