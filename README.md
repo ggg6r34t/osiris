@@ -205,7 +205,11 @@ into three tabs:
   **Open selected** in new tabs (max-open / randomize), **Check** reachability (live/dead badges +
   "reachable only" filter), copy, and CSV/JSON/TXT export.
 - **Domain Tools** — the domain-intelligence modes: **Enrich** (WHOIS/DNS/hosting/SSL/favicon/threat-intel with a
-  computed risk score), **Domain Match** (certificate-transparency lookalikes), **DNSTwist** (permutation scan),
+  computed risk score), **Abuse Router** (for any domain: resolves *who to report abuse to* — registrar, hosting/CDN,
+  email provider — with abuse-email **or web-form** links and an ordered escalation path, plus a live-status verdict
+  from DNS/MX/RDAP status codes to tell whether a fraudulent domain/email is still up or already taken down; includes
+  blocklist/browser reporting channels and a pre-filled report email; keyless RDAP+DNS, abuse map overridable via
+  `abuse_contacts.json`), **Domain Match** (certificate-transparency lookalikes), **DNSTwist** (permutation scan),
   **IP Pivot** (reverse-IP: other domains co-hosted on the same IP + ASN/host facts), **Clone Detect**
   (byte-identical typosquat clones), **Brand Abuse (regex)** (regex search over the internal Panda
   dataset, with a built-in **Generate regex from a brand** helper that turns a brand/domain into a

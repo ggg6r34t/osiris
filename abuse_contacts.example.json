@@ -1,0 +1,11 @@
+{
+  "_comment": "Optional abuse-contact overrides for the Abuse Router tool. Copy to abuse_contacts.json (gitignored) or point OSIRIS_ABUSE_CONTACTS_FILE at it. Keys are lowercase substrings matched against registrar / hosting org / CDN / email-provider names; file entries override or extend the built-in map. Each value may have an 'email' and/or a 'form' URL.",
+  "examplehost": {
+    "email": "abuse@examplehost.com",
+    "form": "https://examplehost.com/report-abuse"
+  },
+  "example registrar": {
+    "email": "abuse@example-registrar.com",
+    "form": ""
+  }
+}

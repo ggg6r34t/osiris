@@ -200,6 +200,59 @@ export type MonitorReport = {
 
 export type RiskLevel = "high" | "medium" | "low" | "unknown";
 
+export type AbuseContactMethod = "email" | "form" | "none";
+
+export type AbuseEscalation = {
+  order: number;
+  target: string;
+  label: string;
+  method: AbuseContactMethod;
+  value: string;
+  form?: string;
+  why: string;
+};
+
+export type AbuseRouteResult = {
+  domain: string;
+  verdict: { state: string; label: string; notes: string[] };
+  dns: { A: string[]; AAAA: string[]; NS: string[]; nxdomain: boolean };
+  registrar: {
+    name: string | null;
+    iana_id: string | null;
+    registration: string | null;
+    expiration: string | null;
+    status: string[];
+    abuse_email: string | null;
+    abuse_form: string | null;
+    abuse_phone: string | null;
+    rdap_note?: string;
+  };
+  registrant: { name?: string | null; org?: string | null; email?: string | null; address?: string | null };
+  hosting: {
+    ip: string | null;
+    asn: string | null;
+    network: string | null;
+    cdn: string | null;
+    abuse_email: string | null;
+    abuse_form: string | null;
+    geolocation?: Record<string, unknown>;
+  };
+  email: {
+    mx: string[];
+    mx_hosts: string[];
+    has_mx: boolean;
+    spf: boolean;
+    dmarc: boolean;
+    provider: string | null;
+    abuse_email: string | null;
+    abuse_form: string | null;
+    note: string;
+  };
+  escalation: AbuseEscalation[];
+  reporting_channels: { name: string; method: AbuseContactMethod; value: string }[];
+  report_email: { to: string; subject: string; body: string };
+};
+
 export type VipInput = {
   name: string;
   aliases: string[];

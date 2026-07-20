@@ -973,3 +973,20 @@ def api_vip_assess(req: VipRequest):
         },
     )
     return scorecard
+
+
+# --------------------------------------------------------------------------- #
+# Abuse Router — who to report a domain to + is it still live
+# --------------------------------------------------------------------------- #
+@app.post("/api/abuse-route")
+def api_abuse_route(req: DomainRequest):
+    from osiris.abuse_router import route_abuse
+
+    domain = _valid_domain(req.domain)
+    report = _cached(
+        f"abuse:{domain}",
+        lambda: _bounded(lambda: _run(route_abuse, domain), 90),
+        refresh=req.refresh,
+    )
+    _record("abuse-route", domain, {"verdict": (report.get("verdict") or {}).get("state")})
+    return report

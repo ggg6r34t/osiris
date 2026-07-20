@@ -58,6 +58,7 @@ osiris.config.json
 osiris.json
 *.local.json
 geo_risk.json
+abuse_contacts.json
 *.pem
 *.key
 *.p12

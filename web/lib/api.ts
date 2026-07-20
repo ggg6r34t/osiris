@@ -1,4 +1,5 @@
 import type {
+  AbuseRouteResult,
   AlertChannels,
   AlertTestResult,
   BrandAbuseResponse,
@@ -184,6 +185,16 @@ export function takedown(
 
 export function ipPivot(domain: string, refresh = false): Promise<IpPivotResult> {
   return jsonFetch<IpPivotResult>("/api/ip-pivot", {
+    method: "POST",
+    body: JSON.stringify({ domain, refresh }),
+  });
+}
+
+export function abuseRoute(
+  domain: string,
+  refresh = false,
+): Promise<AbuseRouteResult> {
+  return jsonFetch<AbuseRouteResult>("/api/abuse-route", {
     method: "POST",
     body: JSON.stringify({ domain, refresh }),
   });

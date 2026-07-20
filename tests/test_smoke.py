@@ -473,6 +473,86 @@ def test_vip_assess_shape_offline(monkeypatch):
     assert sc["presence"]["mention"]["configured"] is False
 
 
+def test_abuse_verdict_logic():
+    import osiris.abuse_router as ar
+
+    # registrar/registry hold => suspended
+    v = ar.liveness_verdict({"A": ["1.2.3.4"], "has_mx": True}, {"alive": True}, ["client hold"])
+    assert v["state"] == "suspended"
+    # nxdomain
+    v = ar.liveness_verdict({"nxdomain": True}, {}, [])
+    assert v["state"] == "nxdomain"
+    # no records at all
+    v = ar.liveness_verdict({"A": [], "AAAA": [], "has_mx": False, "NS": []}, {}, [])
+    assert v["state"] == "no-dns-records"
+    # no web host but configured
+    v = ar.liveness_verdict({"A": [], "AAAA": [], "has_mx": True, "NS": ["ns1.x"]}, {}, [])
+    assert v["state"] == "no-a-record"
+    # live
+    v = ar.liveness_verdict({"A": ["1.2.3.4"]}, {"alive": True, "status_code": 200}, ["active"])
+    assert v["state"] == "live"
+
+
+def test_abuse_email_note_no_mx():
+    import osiris.abuse_router as ar
+
+    note = ar._email_note({"A": ["1.2.3.4"], "NS": ["ns1"], "has_mx": False}, {})
+    assert "cannot receive email" in note
+    note2 = ar._email_note({"A": ["1.2.3.4"], "has_mx": True}, {"provider": "Google Workspace"})
+    assert "Google Workspace" in note2
+
+
+def test_abuse_email_provider_map():
+    import osiris.abuse_router as ar
+
+    p = ar.email_provider(["aspmx.l.google.com", "alt1.aspmx.l.google.com"])
+    assert p["provider"] == "Google Workspace"
+    p2 = ar.email_provider(["acme-com.mail.protection.outlook.com"])
+    assert p2["provider"] == "Microsoft 365"
+    assert ar.email_provider([]) == {}
+
+
+def test_abuse_contact_map_and_override(tmp_path, monkeypatch):
+    import osiris.abuse_router as ar
+
+    monkeypatch.delenv("OSIRIS_ABUSE_CONTACTS_FILE", raising=False)
+    c = ar._lookup_contact("Cloudflare, Inc.")
+    assert c.get("form", "").startswith("https://abuse.cloudflare.com")
+
+    f = tmp_path / "abuse.json"
+    f.write_text('{"acmehost": {"email": "abuse@acmehost.test"}}', encoding="utf-8")
+    monkeypatch.setenv("OSIRIS_ABUSE_CONTACTS_FILE", str(f))
+    c2 = ar._lookup_contact("AcmeHost Datacenters")
+    assert c2.get("email") == "abuse@acmehost.test"
+
+
+def test_abuse_rdap_vcard_parsing():
+    import osiris.abuse_router as ar
+
+    entity = {
+        "roles": ["registrar"],
+        "vcardArray": ["vcard", [["version", {}, "text", "4.0"], ["fn", {}, "text", "Example Registrar"]]],
+        "entities": [
+            {
+                "roles": ["abuse"],
+                "vcardArray": ["vcard", [["email", {}, "text", "abuse@example-reg.test"]]],
+            }
+        ],
+    }
+    assert ar._vcard_field(entity, "fn") == "Example Registrar"
+    abuse = ar._find_entity([entity], "abuse")
+    assert ar._vcard_field(abuse, "email") == "abuse@example-reg.test"
+
+
+def test_abuse_detect_cdn():
+    import osiris.abuse_router as ar
+
+    assert ar.detect_cdn({"NS": ["ns.cloudflare.com"]}, {}, None) == "Cloudflare"
+    assert ar.detect_cdn({"NS": []}, {"cf_ray": True}, None) == "Cloudflare"
+    assert ar.detect_cdn({"NS": ["ns.example.com"]}, {"server": ""}, "Akamai Technologies") == "Akamai"
+    assert ar.detect_cdn({"NS": ["ns.example.com"]}, {}, "Some Host") is None
+
+
 def test_takedown_email_builder():
     enrichment = {
         "domain": "evil-paypa1.com",
