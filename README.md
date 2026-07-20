@@ -266,6 +266,10 @@ Copy `.env.example` to `.env` (gitignored) and fill in what you need — `run.sh
   and IP-Pivot reverse-IP work without keys (rate-limited).
 - **VIP investigation** (optional): `HAVEIBEENPWNED_API_KEY` adds breach-exposure to the service-discoverability
   score. Without it, that dimension falls back to profile-resolution signals only (everything else still works).
+  The geo-risk tiers are overridable: copy `geo_risk.example.json` to `geo_risk.json` (gitignored) at the repo root,
+  or point `OSIRIS_GEO_RISK_FILE` at a file — either `{"high": [...], "medium": [...], "low": [...]}` or a flat
+  `{"country": "high"}` map (case-insensitive; file entries win over the built-in defaults). A VIP scorecard can be
+  exported as a print-friendly **PDF report** or **JSON** from the dashboard.
 - **Screenshots** (optional) — capture suspect/lookalike/clone pages headlessly. Install once:
   `pip install -r requirements-screenshots.txt && playwright install chromium`. Without it, the camera button
   shows a clear "install to enable" message and nothing else is affected.

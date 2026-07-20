@@ -356,6 +356,25 @@ def test_vip_scoring_levels():
     assert vip.impersonation_level(0) == "low"
 
 
+def test_vip_geo_override_file(tmp_path, monkeypatch):
+    import osiris.vip as vip
+
+    # built-in default: Brazil is medium
+    monkeypatch.delenv("OSIRIS_GEO_RISK_FILE", raising=False)
+    assert vip.geo_level("Brazil") == "medium"
+
+    # grouped-form override file promotes Brazil to high
+    f = tmp_path / "geo.json"
+    f.write_text('{"high": ["Brazil"], "low": ["Syria"]}', encoding="utf-8")
+    monkeypatch.setenv("OSIRIS_GEO_RISK_FILE", str(f))
+    assert vip.geo_level("Brazil") == "high"
+    assert vip.geo_level("Syria") == "low"  # file wins over built-in high
+
+    # flat-form map
+    f.write_text('{"brazil": "low"}', encoding="utf-8")
+    assert vip.geo_level("Brazil") == "low"
+
+
 def test_vip_overall_score_monotonic():
     import osiris.vip as vip
 

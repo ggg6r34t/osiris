@@ -57,6 +57,7 @@ custom_platforms.json
 osiris.config.json
 osiris.json
 *.local.json
+geo_risk.json
 *.pem
 *.key
 *.p12

@@ -16,6 +16,7 @@ pivots. It deliberately does NOT enumerate or store sensitive personal content
 protection / digital-risk-protection work.
 """
 import concurrent.futures
+import json
 import os
 import urllib.parse
 from typing import Optional
@@ -52,8 +53,8 @@ PROFILE_URL_PATTERNS = {
     "Gravatar": "https://gravatar.com/{u}",
 }
 
-# Coarse geo-risk starter tiers (overridable in the UI). Judgement call by
-# design — a defensible default, not an authoritative index.
+# Coarse geo-risk starter tiers (overridable — see _load_geo_tiers). Judgement
+# call by design — a defensible default, not an authoritative index.
 _GEO_HIGH = {
     "afghanistan", "syria", "yemen", "somalia", "south sudan", "libya", "iraq",
     "mali", "sudan", "myanmar", "haiti", "venezuela", "north korea",
@@ -64,6 +65,7 @@ _GEO_LOW = {
     "canada", "japan", "singapore", "australia", "netherlands", "sweden",
     "ireland", "luxembourg", "austria",
 }
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 _LEVEL_SCORE = {"low": 12, "medium": 50, "high": 88, "unknown": 40}
 
@@ -209,15 +211,50 @@ def discoverability_level(breach_count: int, resolved_count: int, hibp_on: bool)
     return "low"
 
 
+def _geo_file_path() -> Optional[str]:
+    """Resolve the optional geo-risk override file: OSIRIS_GEO_RISK_FILE if set,
+    else an auto-discovered geo_risk.json at the repo root."""
+    override = os.getenv("OSIRIS_GEO_RISK_FILE")
+    if override:
+        return override
+    candidate = os.path.join(_REPO_ROOT, "geo_risk.json")
+    return candidate if os.path.exists(candidate) else None
+
+
+def _load_geo_tiers() -> dict:
+    """Built-in tiers merged with an optional override file. The file may be
+    either {"high": [...], "medium": [...], "low": [...]} or a flat
+    {"country name": "high", ...} map. File entries win over built-ins."""
+    tiers = {c: "high" for c in _GEO_HIGH}
+    tiers.update({c: "low" for c in _GEO_LOW})
+
+    path = _geo_file_path()
+    if not path or not os.path.exists(path):
+        return tiers
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return tiers
+    if not isinstance(data, dict):
+        return tiers
+
+    if any(k in data for k in ("high", "medium", "low")):
+        for level in ("high", "medium", "low"):
+            for c in data.get(level, []) or []:
+                if isinstance(c, str) and c.strip():
+                    tiers[c.strip().lower()] = level
+    else:
+        for c, level in data.items():
+            if isinstance(c, str) and level in ("high", "medium", "low"):
+                tiers[c.strip().lower()] = level
+    return tiers
+
+
 def geo_level(country: Optional[str]) -> str:
     if not country:
         return "unknown"
-    c = country.strip().lower()
-    if c in _GEO_HIGH:
-        return "high"
-    if c in _GEO_LOW:
-        return "low"
-    return "medium"
+    return _load_geo_tiers().get(country.strip().lower(), "medium")
 
 
 def impersonation_level(count: int) -> str:

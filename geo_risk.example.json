@@ -1,0 +1,16 @@
+{
+  "_comment": "Optional geo-risk tier overrides for the VIP investigation feature. Copy to geo_risk.json (gitignored) or point OSIRIS_GEO_RISK_FILE at it. Country names are matched case-insensitively and override the built-in defaults. Use either the grouped form below, or a flat map like {\"brazil\": \"high\"}.",
+  "high": [
+    "afghanistan",
+    "syria",
+    "yemen"
+  ],
+  "medium": [
+    "brazil",
+    "mexico"
+  ],
+  "low": [
+    "switzerland",
+    "japan"
+  ]
+}

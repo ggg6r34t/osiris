@@ -5,6 +5,7 @@ import { assessVip } from "@/lib/api";
 import type { RiskLevel, VipPivot, VipScorecard, VipSearchPivot } from "@/lib/types";
 import AddToCase from "./AddToCase";
 import { ToolError, ToolLoading } from "./domain/ui";
+import { exportVipJson, openVipReport } from "@/lib/vipReport";
 
 const LEVEL_STYLE: Record<RiskLevel, string> = {
   high: "border-danger/40 bg-danger/10 text-danger",
@@ -298,8 +299,26 @@ export default function VipView() {
                   </span>
                 )}
               </div>
-              <div className="ml-auto">
+              <div className="ml-auto flex flex-col items-end gap-1.5">
                 <AddToCase kind="vip" data={data as unknown as Record<string, unknown>} />
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => openVipReport(data)}
+                    className="rounded-md border border-line px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-fg-muted transition-colors hover:border-accent hover:text-accent"
+                    title="Open a print-friendly report (Save as PDF)"
+                  >
+                    PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => exportVipJson(data)}
+                    className="rounded-md border border-line px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-fg-muted transition-colors hover:border-accent hover:text-accent"
+                    title="Download the scorecard as JSON"
+                  >
+                    JSON
+                  </button>
+                </div>
               </div>
             </div>
 
