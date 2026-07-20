@@ -162,3 +162,13 @@ export function BoltIcon(props: IconProps) {
     </svg>
   );
 }
+
+export function VipIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 2 4 5v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V5l-8-3Z" />
+      <circle cx="12" cy="10" r="2.4" />
+      <path d="M8.2 15.6a4 4 0 0 1 7.6 0" />
+    </svg>
+  );
+}

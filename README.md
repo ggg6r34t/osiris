@@ -217,6 +217,13 @@ into three tabs:
   and highlights newly-registered lookalikes vs. the last run — also `osiris --monitor` for cron), and **History**
   (recent runs). Enrich also has **bulk** mode, per-tool **CSV/JSON export**, a **↻ refresh** (cache bypass), a
   **takedown/abuse-email** generator, and **screenshots** of suspect pages.
+- **VIP Investigation** — a protective-intelligence exposure scorecard for a person (executive-protection / DRP).
+  Enter a VIP (name/aliases, emails, known handles, company, country) and Osiris scores four dimensions
+  **High / Medium / Low** — online-presence volume (cross-platform handle resolution), service-account
+  discoverability (breach exposure via HIBP + resolution), geo-location risk, and impersonations
+  (investigator-confirmed) — plus an overall exposure score and investigator pivots (presence/handle discovery,
+  impersonation hunt, family/relatives, business/associates, geo/location). It measures *risk levels* and hands
+  you pivots — it does not harvest or store sensitive personal content. Save a scorecard to a case.
 - **Custom Platforms** — add/list/remove user platforms (persisted to `custom_platforms.json`).
 - **Settings** — User-Agent, request timeout, rate limit, HTTP(S) proxy, Tor, and TLS verification.
 
@@ -257,6 +264,8 @@ Copy `.env.example` to `.env` (gitignored) and fill in what you need — `run.sh
 - **Enrichment** API keys (optional, degrade gracefully): `ABUSEIPDB_API_KEY`, `SECURITYTRAILS_API_KEY`, `IPINFO_TOKEN`,
   `VIRUSTOTAL_API_KEY` (adds VirusTotal detections + reputation to Enrich and the risk score). urlscan.io reputation
   and IP-Pivot reverse-IP work without keys (rate-limited).
+- **VIP investigation** (optional): `HAVEIBEENPWNED_API_KEY` adds breach-exposure to the service-discoverability
+  score. Without it, that dimension falls back to profile-resolution signals only (everything else still works).
 - **Screenshots** (optional) — capture suspect/lookalike/clone pages headlessly. Install once:
   `pip install -r requirements-screenshots.txt && playwright install chromium`. Without it, the camera button
   shows a clear "install to enable" message and nothing else is affected.

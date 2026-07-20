@@ -23,6 +23,8 @@ import type {
   SearchResult,
   Settings,
   TakedownEmail,
+  VipInput,
+  VipScorecard,
   WatchTarget,
 } from "./types";
 
@@ -357,6 +359,13 @@ export function runMonitor(target: string): Promise<MonitorReport> {
   return jsonFetch<MonitorReport>("/api/monitor/run", {
     method: "POST",
     body: JSON.stringify({ target }),
+  });
+}
+
+export function assessVip(input: VipInput): Promise<VipScorecard> {
+  return jsonFetch<VipScorecard>("/api/vip/assess", {
+    method: "POST",
+    body: JSON.stringify(input),
   });
 }
 

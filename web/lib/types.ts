@@ -198,6 +198,56 @@ export type MonitorReport = {
   report: Record<string, MonitorToolReport>;
 };
 
+export type RiskLevel = "high" | "medium" | "low" | "unknown";
+
+export type VipInput = {
+  name: string;
+  aliases: string[];
+  emails: string[];
+  usernames: string[];
+  company: string;
+  country: string;
+  known_impersonations: number;
+};
+
+export type VipPivot = { label: string; url: string };
+export type VipSearchPivot = { platform: string; category: string; url: string };
+
+export type VipScorecard = {
+  profile: VipInput;
+  levels: {
+    presence: RiskLevel;
+    discoverability: RiskLevel;
+    geo: RiskLevel;
+    impersonation: RiskLevel;
+  };
+  overall_score: number;
+  presence: {
+    resolved_count: number;
+    profiles: { platform: string; url: string; username: string }[];
+    checked_platforms: number;
+  };
+  discoverability: {
+    hibp_configured: boolean;
+    breach_count: number;
+    emails: {
+      email: string;
+      configured: boolean;
+      count: number;
+      breaches: string[];
+      error?: string;
+    }[];
+  };
+  impersonation: { confirmed: number };
+  geo: { country: string };
+  pivots: {
+    social: VipSearchPivot[];
+    family: VipPivot[];
+    business: VipPivot[];
+    geo: VipPivot[];
+  };
+};
+
 export type AlertChannels = { telegram: boolean; webhook: boolean };
 
 export type AlertTestResult = {

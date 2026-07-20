@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 
-export type TabKey = "search" | "domain" | "cases" | "custom" | "settings";
+export type TabKey = "search" | "domain" | "vip" | "cases" | "custom" | "settings";
 
 export type NavItem = {
   key: TabKey;

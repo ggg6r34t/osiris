@@ -10,6 +10,7 @@ import EmptyState from "@/components/EmptyState";
 import SettingsPanel from "@/components/SettingsPanel";
 import CustomPlatforms from "@/components/CustomPlatforms";
 import DomainTools from "@/components/DomainTools";
+import VipView from "@/components/VipView";
 import Workspace from "@/components/Workspace";
 import {
   AlertIcon,
@@ -18,6 +19,7 @@ import {
   LayersIcon,
   SearchIcon,
   SlidersIcon,
+  VipIcon,
 } from "@/components/icons";
 import { fetchPlatforms, runSearch } from "@/lib/api";
 import type {
@@ -29,6 +31,7 @@ import type {
 const NAV_ITEMS = [
   { key: "search" as const, label: "Search", icon: <SearchIcon className="h-5 w-5" /> },
   { key: "domain" as const, label: "Domain Tools", icon: <BoltIcon className="h-5 w-5" /> },
+  { key: "vip" as const, label: "VIP", icon: <VipIcon className="h-5 w-5" /> },
   { key: "cases" as const, label: "Cases", icon: <CasesIcon className="h-5 w-5" /> },
   { key: "custom" as const, label: "Custom Platforms", icon: <LayersIcon className="h-5 w-5" /> },
   { key: "settings" as const, label: "Settings", icon: <SlidersIcon className="h-5 w-5" /> },
@@ -42,6 +45,10 @@ const SECTIONS: Record<TabKey, { title: string; desc: string }> = {
   domain: {
     title: "Domain Tools",
     desc: "Enrichment, lookalikes, clones, brand-abuse and combined scans.",
+  },
+  vip: {
+    title: "VIP Investigation",
+    desc: "Protective-intelligence exposure scorecard for a person — presence, impersonation, discoverability, geo risk.",
   },
   cases: {
     title: "Cases",
@@ -189,6 +196,8 @@ export default function Home() {
             )}
 
             {tab === "domain" && <DomainTools />}
+
+            {tab === "vip" && <VipView />}
 
             {tab === "cases" && <Workspace />}
 

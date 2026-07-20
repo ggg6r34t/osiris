@@ -334,6 +334,74 @@ def test_notify_build_findings_message():
     assert payload["new"] == {"domain-match": ["a.com", "b.com"]}
 
 
+def test_vip_scoring_levels():
+    import osiris.vip as vip
+
+    assert vip.presence_level(9, True) == "high"
+    assert vip.presence_level(4, True) == "medium"
+    assert vip.presence_level(1, True) == "low"
+    assert vip.presence_level(0, False) == "unknown"
+
+    assert vip.discoverability_level(4, 0, True) == "high"
+    assert vip.discoverability_level(1, 0, True) == "medium"
+    assert vip.discoverability_level(0, 0, True) == "low"
+    assert vip.discoverability_level(0, 0, False) == "unknown"
+
+    assert vip.geo_level("Syria") == "high"
+    assert vip.geo_level("Switzerland") == "low"
+    assert vip.geo_level("Brazil") == "medium"
+    assert vip.geo_level("") == "unknown"
+
+    assert vip.impersonation_level(5) == "high"
+    assert vip.impersonation_level(0) == "low"
+
+
+def test_vip_overall_score_monotonic():
+    import osiris.vip as vip
+
+    low = vip.overall_score(
+        {"presence": "low", "discoverability": "low", "geo": "low", "impersonation": "low"}
+    )
+    high = vip.overall_score(
+        {"presence": "high", "discoverability": "high", "geo": "high", "impersonation": "high"}
+    )
+    assert 0 <= low < high <= 100
+
+
+def test_vip_hibp_graceful_without_key(monkeypatch):
+    import osiris.vip as vip
+
+    monkeypatch.delenv("HAVEIBEENPWNED_API_KEY", raising=False)
+
+    def boom(*_a, **_k):
+        raise AssertionError("HIBP called without an API key")
+
+    monkeypatch.setattr(vip.requests, "get", boom)
+    res = vip.check_hibp("jane@example.com")
+    assert res == {
+        "email": "jane@example.com",
+        "configured": False,
+        "count": 0,
+        "breaches": [],
+    }
+
+
+def test_vip_assess_shape_offline(monkeypatch):
+    """assess_vip returns a full scorecard without network when no handles/emails."""
+    import osiris.vip as vip
+
+    monkeypatch.delenv("HAVEIBEENPWNED_API_KEY", raising=False)
+    monkeypatch.setattr(vip, "resolve_handles", lambda _u: [])
+
+    sc = vip.assess_vip(
+        {"name": "Jane Executive", "company": "Acme", "country": "Syria"}
+    )
+    assert set(sc["levels"]) == {"presence", "discoverability", "geo", "impersonation"}
+    assert sc["levels"]["geo"] == "high"
+    assert isinstance(sc["overall_score"], int)
+    assert sc["pivots"]["social"] and sc["pivots"]["family"]
+
+
 def test_takedown_email_builder():
     enrichment = {
         "domain": "evil-paypa1.com",

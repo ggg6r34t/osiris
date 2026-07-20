@@ -940,3 +940,36 @@ def api_notify_test():
         {"test": True},
     )
     return {"configured": True, "channels": ch, "results": results}
+
+
+# --------------------------------------------------------------------------- #
+# VIP investigation — protective-intelligence exposure assessment
+# --------------------------------------------------------------------------- #
+class VipRequest(BaseModel):
+    name: str
+    aliases: list[str] = []
+    emails: list[str] = []
+    usernames: list[str] = []
+    company: str = ""
+    country: str = ""
+    known_impersonations: int = 0
+
+
+@app.post("/api/vip/assess")
+def api_vip_assess(req: VipRequest):
+    from osiris.vip import assess_vip
+
+    name = (req.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="A VIP name is required.")
+
+    scorecard = _bounded(lambda: _run(assess_vip, req.model_dump()), 180)
+    _record(
+        "vip",
+        name,
+        {
+            "overall_score": scorecard.get("overall_score"),
+            "levels": scorecard.get("levels"),
+        },
+    )
+    return scorecard
