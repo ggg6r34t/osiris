@@ -1,34 +1,55 @@
 # 🔍 Osiris
 
-Osiris is a powerful and modular OSINT command-line tool for investigating trademark violations, people, scams, phishing,
-and more across categorized platforms. Export results, open links, log activity, and perform intelligent
-searches with support for fuzzy matching and link status checking.
+**A single-operator investigation workbench for brand abuse, phishing, and executive protection.**
+
+Osiris began as an OSINT link engine and grew into a full **investigation platform** — a CLI *and* a web
+workbench that carries a case through its whole lifecycle: **discover → assess → decide → act → monitor**. It
+generates OSINT pivots, enriches and scores domains, resolves who to report abuse to, profiles a VIP's digital
+exposure, files findings into cases, and watches targets for change — alerting you when something new appears.
+
+Think of it as a personal **Digital Risk Protection (DRP)** / brand-abuse & executive-protection console, scoped
+to one operator. Everything runs locally; enrichment integrations are opt-in and degrade gracefully without keys.
 
 ---
 
-## 🚀 Features
+## 🚀 What it does
 
-- Modular and clean architecture (`cli`, `search`, `export`, `utils`, `config`, `setup`)
-- Search types: `trademark violations`, `people`, `scams`, `phishing`, or `webpages`
-- Categorized platforms: Social, Mobile Apps, Web, Instant Messengers, Advertising, Marketplaces
-- Supports fuzzy matching, platform/category filtering, link previews
-- Batch mode from targets file
-- Threat scoring for result triage
-- Open links in browser
-- Export results to CSV, JSON, or TXT
-- Check link HTTP status before exporting
-- Logs search history and activity
-- Colorized terminal output for clarity
+**Discover**
+- OSINT search-link generation across categorized platforms (social, apps, web, messengers, marketplaces, …),
+  with fuzzy matching, filtering, batch mode, threat scoring, reachability checks, and CSV/JSON/TXT export.
+- Lookalike / typosquat discovery (certificate-transparency **Domain Match**, **DNSTwist** permutations),
+  **Clone Detect**, and **IP Pivot** (reverse-IP co-hosted domains).
+
+**Assess**
+- **Enrich** — WHOIS/DNS/hosting/SSL/favicon + threat intel (VirusTotal, urlscan, AbuseIPDB) and a computed
+  risk score; bulk mode + exports.
+- **VIP Investigation** — a protective-intelligence exposure scorecard for a person (online presence, service
+  discoverability, geo risk, impersonations → High/Med/Low + overall score, with investigator pivots).
+
+**Act**
+- **Abuse Router** — for any domain, resolves *who to report to* (registrar, hosting/CDN, email provider) with
+  abuse-email or web-form links + an escalation path, and reads DNS/MX/RDAP to tell whether it's still live or
+  already taken down. Pre-filled takedown emails, screenshots, IOC/PDF/CSV exports.
+
+**Persist & monitor**
+- **Cases & history** — a local investigation workspace (SQLite) with per-finding status/notes.
+- **Monitoring** — a watchlist that re-runs lookalike scans and highlights new domains vs. the last run, with
+  optional **Telegram / webhook alerts** and a cron-friendly `osiris --monitor`.
 
 ---
 
-## 🧩 Use Cases
+## 🧩 Use cases
 
-- Identify potential trademark violations and detect lookalike or similar domains across various platforms.
-- Discover phishing sites, malicious domains, and scams by searching web services and detection engines.
-- Investigate scam operations across e-commerce platforms, social media, and other services.
-- Gather information for research, investigations, or audits to track entities involved in illicit activities.
-- Add your own search platforms via JSON templates for tailored OSINT research.
+- Run a brand-abuse / phishing investigation end to end: find lookalikes, assess them, route the takedown, file
+  the case, and monitor for new impersonations.
+- Check whether a fraudulent domain or email is still operational (or already suspended) from its DNS/MX/RDAP state.
+- Produce a defensive digital-exposure profile for an executive/VIP (authorized protective-intelligence / DRP).
+- Triage and enrich domains at scale, then export IOCs/reports for downstream tools.
+- Extend it to your environment: custom search platforms, abuse-contact and geo-risk overrides — all via JSON.
+
+> **Scope:** Osiris is a **local, single-operator** tool by design — no auth, local SQLite, opt-in enrichment,
+> and several signals (handle resolution, mention volume, geo tier, liveness verdicts) are heuristics meant to
+> guide an analyst, not to be authoritative. That's the line between it and a hosted, multi-tenant DRP product.
 
 ---
 
@@ -194,10 +215,11 @@ You can extend the default platform database by providing your own custom platfo
 
 ---
 
-## 🌐 Web UI (experimental)
+## 🌐 Web workbench
 
-A web UI is available under `web/` (Next.js) backed by a FastAPI server (`api_server.py` / `osiris.api`), organized
-into three tabs:
+The primary interface is a web workbench under `web/` (Next.js) backed by a FastAPI server (`osiris.api`),
+organized into sections — **Search**, **Domain Tools**, **VIP**, **Cases**, **Custom Platforms**, and
+**Settings**:
 
 - **Search** — target (single or batch), platform/category picker, and an Options panel exposing the CLI's
   search flags: fuzzy matching, dedupe, threat scoring + sort-by-score, max-links, exclude platforms/categories,
