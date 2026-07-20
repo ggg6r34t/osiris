@@ -156,68 +156,87 @@ export default function SearchPanel({
     splitList(excludePlatforms).length && "exclude",
   ].filter(Boolean) as string[];
 
+  const submitInner = loading ? (
+    <>
+      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/50 border-t-white" />
+      Searching
+    </>
+  ) : (
+    <>
+      <SearchIcon className="h-4 w-4" />
+      Search
+    </>
+  );
+
   return (
     <form
       onSubmit={handleSubmit}
       className="rounded-2xl border border-line bg-surface/70 p-6 shadow-card backdrop-blur"
     >
-      <div className="mb-1.5 flex items-center justify-between">
-        <label className="font-mono text-[11px] uppercase tracking-wider text-fg-muted">
-          {batch ? "Targets (one per line)" : "Target"}
-        </label>
-        <button
-          type="button"
-          onClick={() => setBatch((v) => !v)}
-          className="text-xs text-fg-faint hover:text-accent"
-        >
-          {batch ? "Single target" : "Batch (multiple)"}
-        </button>
-      </div>
+      {/* Hero */}
+      <div className="flex flex-col items-center px-2 pb-1 pt-2 text-center">
+        <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-gradient shadow-glow ring-4 ring-accent/10">
+          <SearchIcon className="h-7 w-7 text-white" />
+        </div>
+        <h2 className="text-2xl font-semibold tracking-tight text-fg">
+          Search across platforms
+        </h2>
+        <p className="mt-2 max-w-xl text-sm text-fg-muted">
+          Generate OSINT search links for a name, company, username, or domain across
+          categorized platforms — then open, check, score, and export the results.
+        </p>
 
-      <div className="flex flex-col gap-2.5 sm:flex-row">
-        <div className="relative flex-1">
+        <div className="mt-6 w-full max-w-2xl">
           {batch ? (
             <textarea
               value={batchText}
               onChange={(e) => setBatchText(e.target.value)}
               placeholder={"acme corp\nexample.com\n@handle"}
               rows={3}
-              className="w-full resize-y rounded-lg border border-line bg-canvas px-3 py-2.5 text-[15px] text-fg outline-none transition-colors placeholder:text-fg-faint focus:border-accent/70 focus:ring-2 focus:ring-accent/20"
+              className="w-full resize-y rounded-xl border border-line bg-canvas px-3 py-2.5 text-left text-[15px] text-fg outline-none transition-colors placeholder:text-fg-faint focus:border-accent/70 focus:ring-2 focus:ring-accent/20"
             />
           ) : (
-            <>
-              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-fg-faint" />
+            <div className="flex items-center gap-2 rounded-xl border border-line bg-canvas py-1.5 pl-3 pr-1.5 text-left transition-colors focus-within:border-accent/70 focus-within:ring-2 focus-within:ring-accent/20">
+              <SearchIcon className="pointer-events-none h-[18px] w-[18px] shrink-0 text-fg-faint" />
               <input
                 type="text"
                 value={target}
                 onChange={(e) => setTarget(e.target.value)}
                 placeholder="name, company, username, or domain…"
                 autoFocus
-                className="w-full rounded-lg border border-line bg-canvas py-2.5 pl-10 pr-3 text-[15px] text-fg outline-none transition-colors placeholder:text-fg-faint focus:border-accent/70 focus:ring-2 focus:ring-accent/20"
+                className="min-w-0 flex-1 bg-transparent py-1.5 text-[15px] text-fg outline-none placeholder:text-fg-faint"
               />
-            </>
+              <button
+                type="submit"
+                disabled={submitDisabled}
+                className="inline-flex h-[40px] shrink-0 items-center justify-center gap-2 rounded-lg bg-accent-gradient px-4 text-sm font-semibold text-white shadow-glow transition-all hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {submitInner}
+              </button>
+            </div>
+          )}
+
+          {batch && (
+            <button
+              type="submit"
+              disabled={submitDisabled}
+              className="mt-2.5 inline-flex h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-accent-gradient px-5 text-sm font-semibold text-white shadow-glow transition-all hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {submitInner}
+            </button>
           )}
         </div>
+
         <button
-          type="submit"
-          disabled={submitDisabled}
-          className="inline-flex h-[46px] items-center justify-center gap-2 self-start rounded-lg bg-accent-gradient shadow-glow px-5 text-sm font-semibold text-white transition-all hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
+          type="button"
+          onClick={() => setBatch((v) => !v)}
+          className="mt-3 text-xs text-fg-faint transition-colors hover:text-accent"
         >
-          {loading ? (
-            <>
-              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/50 border-t-white" />
-              Searching
-            </>
-          ) : (
-            <>
-              <SearchIcon className="h-4 w-4" />
-              Search
-            </>
-          )}
+          {batch ? "← Single target" : "Batch (multiple targets)"}
         </button>
       </div>
 
-      <div className="mt-4 border-t border-line-soft pt-4">
+      <div className="mt-5 border-t border-line-soft pt-4">
         <div className="mb-3 flex flex-wrap items-center gap-1.5">
           <span className="mr-1 font-mono text-[11px] uppercase tracking-wider text-fg-muted">
             Preset
