@@ -518,6 +518,47 @@ def test_ioc_export_dispatch():
         ioc.export_iocs({}, "bogus")
 
 
+def test_feeds_aggregate_verdict(monkeypatch):
+    import osiris.feeds as fe
+
+    monkeypatch.setattr(fe, "check_urlhaus", lambda h: {"source": "URLhaus", "listed": True, "detail": "1 online"})
+    monkeypatch.setattr(fe, "check_spamhaus", lambda t, ip: {"source": "Spamhaus DBL", "listed": False})
+    monkeypatch.setattr(fe, "check_surbl", lambda h: {"source": "SURBL", "listed": False})
+    monkeypatch.setattr(fe, "check_safe_browsing", lambda t, ip: {"source": "GSB", "listed": None, "detail": "not configured"})
+
+    r = fe.check_reputation("evil.com")
+    assert r["verdict"] == "listed" and r["listed_count"] == 1
+    assert r["is_ip"] is False
+
+
+def test_feeds_clean_and_unknown(monkeypatch):
+    import osiris.feeds as fe
+
+    monkeypatch.setattr(fe, "check_urlhaus", lambda h: {"source": "URLhaus", "listed": False})
+    monkeypatch.setattr(fe, "check_spamhaus", lambda t, ip: {"source": "Spamhaus", "listed": False})
+    monkeypatch.setattr(fe, "check_surbl", lambda h: {"source": "SURBL", "listed": False})
+    monkeypatch.setattr(fe, "check_safe_browsing", lambda t, ip: {"source": "GSB", "listed": None})
+    assert fe.check_reputation("good.com")["verdict"] == "clean"
+
+    # all sources indeterminate -> unknown
+    for fn in ("check_urlhaus", "check_spamhaus", "check_surbl", "check_safe_browsing"):
+        monkeypatch.setattr(fe, fn, (lambda *a, **k: {"source": "x", "listed": None}))
+    assert fe.check_reputation("1.2.3.4")["verdict"] == "unknown"
+
+
+def test_feeds_safe_browsing_graceful(monkeypatch):
+    import osiris.feeds as fe
+
+    monkeypatch.delenv("GOOGLE_SAFE_BROWSING_API_KEY", raising=False)
+
+    def boom(*_a, **_k):
+        raise AssertionError("Safe Browsing called without a key")
+
+    monkeypatch.setattr(fe.requests, "post", boom)
+    r = fe.check_safe_browsing("evil.com", False)
+    assert r["listed"] is None and "not configured" in r["detail"]
+
+
 def test_url_assess_phishing_page():
     import osiris.url_analyzer as ua
 

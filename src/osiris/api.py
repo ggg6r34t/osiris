@@ -1142,6 +1142,20 @@ def api_url_analyze(req: UrlAnalyzeRequest):
     return result
 
 
+@app.post("/api/reputation")
+def api_reputation(req: DomainRequest):
+    from osiris.feeds import check_reputation
+
+    target = _valid_domain(req.domain)
+    result = _cached(
+        f"reputation:{target}",
+        lambda: _bounded(lambda: _run(check_reputation, target), 45),
+        refresh=req.refresh,
+    )
+    _record("reputation", target, {"verdict": result.get("verdict"), "listed": result.get("listed_count")})
+    return result
+
+
 class EmailAnalyzeRequest(BaseModel):
     raw: str
 

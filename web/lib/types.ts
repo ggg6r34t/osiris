@@ -264,6 +264,21 @@ export type UrlAnalysis = {
   iocs?: IocSet;
 };
 
+export type ReputationSource = {
+  source: string;
+  listed: boolean | null;
+  detail?: string;
+  reference?: string;
+};
+
+export type ReputationResult = {
+  target: string;
+  is_ip: boolean;
+  sources: ReputationSource[];
+  listed_count: number;
+  verdict: "listed" | "clean" | "unknown";
+};
+
 export type AbuseContactMethod = "email" | "form" | "none";
 
 export type AbuseEscalation = {

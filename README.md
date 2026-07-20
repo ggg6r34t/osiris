@@ -229,7 +229,9 @@ organized into sections — **Search**, **Domain Tools**, **VIP**, **Cases**, **
 - **Domain Tools** — the domain-intelligence modes: **Enrich** (WHOIS/DNS/hosting/SSL/favicon/threat-intel with a
   computed risk score), **URL Analyze** (fetches a suspected phishing page — HTML only, no JS — and flags
   credential-harvesting forms, cross-domain form posts, brand impersonation, redirect chains and page IOCs with a
-  risk level), **Abuse Router** (for any domain: resolves *who to report abuse to* — registrar, hosting/CDN,
+  risk level), **Reputation** (checks a domain/IP against phishing & malware feeds — URLhaus, Spamhaus, SURBL, and
+  Google Safe Browsing if a key is set — and rolls the hits into a listed/clean verdict), **Abuse Router** (for
+  any domain: resolves *who to report abuse to* — registrar, hosting/CDN,
   email provider — with abuse-email **or web-form** links and an ordered escalation path, plus a live-status verdict
   from DNS/MX/RDAP status codes to tell whether a fraudulent domain/email is still up or already taken down; includes
   blocklist/browser reporting channels and a pre-filled report email; keyless RDAP+DNS, abuse map overridable via
