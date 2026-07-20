@@ -265,7 +265,9 @@ Copy `.env.example` to `.env` (gitignored) and fill in what you need — `run.sh
   `VIRUSTOTAL_API_KEY` (adds VirusTotal detections + reputation to Enrich and the risk score). urlscan.io reputation
   and IP-Pivot reverse-IP work without keys (rate-limited).
 - **VIP investigation** (optional): `HAVEIBEENPWNED_API_KEY` adds breach-exposure to the service-discoverability
-  score. Without it, that dimension falls back to profile-resolution signals only (everything else still works).
+  score. `BRAVE_SEARCH_API_KEY` adds name-**mention volume** to the online-presence score (knowledge-panel, result
+  density and news coverage → H/M/L), blended with account footprint so presence is High if strong on either axis.
+  Without these keys those signals degrade gracefully (presence uses account footprint only; everything else works).
   The geo-risk tiers are overridable: copy `geo_risk.example.json` to `geo_risk.json` (gitignored) at the repo root,
   or point `OSIRIS_GEO_RISK_FILE` at a file — either `{"high": [...], "medium": [...], "low": [...]}` or a flat
   `{"country": "high"}` map (case-insensitive; file entries win over the built-in defaults). A VIP scorecard can be

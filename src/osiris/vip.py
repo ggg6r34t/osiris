@@ -188,9 +188,87 @@ def check_hibp(email: str) -> dict:
 
 
 # --------------------------------------------------------------------------- #
+# Mention volume (Brave Search — opt-in, graceful without a key)
+# --------------------------------------------------------------------------- #
+_BRAVE_API = "https://api.search.brave.com/res/v1/web/search"
+
+
+def mention_level(sig: dict) -> str:
+    """Bucket Brave signals into a mention-volume level. Brave does not expose a
+    raw total-result count, so this is a heuristic proxy from knowledge-panel
+    presence, web-result density (+ more-available), and news coverage."""
+    if not sig or not sig.get("configured") or sig.get("error"):
+        return "unknown"
+    score = 0
+    if sig.get("has_infobox"):
+        score += 3  # a knowledge entity is a strong notability signal
+    web = sig.get("web_results", 0)
+    if web >= 15 and sig.get("more_results_available"):
+        score += 2
+    elif web >= 8:
+        score += 1
+    if sig.get("news_results", 0) >= 3:
+        score += 1
+    if score >= 4:
+        return "high"
+    if score >= 2:
+        return "medium"
+    return "low"
+
+
+def brave_search(query: str) -> dict:
+    """Query Brave Search for name-mention signals. Opt-in via
+    BRAVE_SEARCH_API_KEY; returns configured=False (no network) without a key."""
+    key = os.getenv("BRAVE_SEARCH_API_KEY")
+    if not key:
+        return {"configured": False, "level": "unknown", "query": query}
+    try:
+        r = requests.get(
+            _BRAVE_API,
+            params={"q": query, "count": 20},
+            headers={"X-Subscription-Token": key, "Accept": "application/json"},
+            timeout=get_request_timeout(),
+            proxies=get_proxies(),
+        )
+        if r.status_code != 200:
+            return {
+                "configured": True,
+                "level": "unknown",
+                "query": query,
+                "error": f"HTTP {r.status_code}",
+            }
+        data = r.json()
+        web = ((data.get("web") or {}).get("results")) or []
+        news = ((data.get("news") or {}).get("results")) or []
+        sig = {
+            "configured": True,
+            "query": query,
+            "web_results": len(web),
+            "news_results": len(news),
+            "has_infobox": bool(data.get("infobox")),
+            "more_results_available": bool(
+                (data.get("query") or {}).get("more_results_available")
+            ),
+        }
+        sig["level"] = mention_level(sig)
+        return sig
+    except requests.RequestException as e:
+        return {
+            "configured": True,
+            "level": "unknown",
+            "query": query,
+            "error": e.__class__.__name__,
+        }
+
+
+# --------------------------------------------------------------------------- #
 # Scoring (pure functions — unit-tested)
 # --------------------------------------------------------------------------- #
-def presence_level(resolved_count: int, has_handles: bool) -> str:
+_ORDER = {"low": 1, "medium": 2, "high": 3}
+
+
+def footprint_level(resolved_count: int, has_handles: bool) -> str:
+    """Account-footprint level from how many platforms a handle resolves on."""
     if not has_handles:
         return "unknown"
     if resolved_count >= 8:
@@ -198,6 +276,22 @@ def presence_level(resolved_count: int, has_handles: bool) -> str:
     if resolved_count >= 3:
         return "medium"
     return "low"
+
+
+def presence_level(
+    resolved_count: int, has_handles: bool, mention: str = "unknown"
+) -> str:
+    """Blend account footprint with name-mention volume — presence is High if
+    strong on EITHER axis; falls back to whichever signal is available."""
+    footprint = footprint_level(resolved_count, has_handles)
+    m = mention if mention in _ORDER else "unknown"
+    if footprint == "unknown" and m == "unknown":
+        return "unknown"
+    if footprint == "unknown":
+        return m
+    if m == "unknown":
+        return footprint
+    return max((footprint, m), key=lambda lvl: _ORDER[lvl])
 
 
 def discoverability_level(breach_count: int, resolved_count: int, hibp_on: bool) -> str:
@@ -331,9 +425,16 @@ def assess_vip(profile: dict) -> dict:
     country = (profile.get("country") or "").strip()
     known_impersonations = int(profile.get("known_impersonations") or 0)
 
-    # 1. Presence — resolve known handles across platforms.
+    # 1a. Presence — account footprint: resolve known handles across platforms.
     resolved = resolve_handles(usernames)
     resolved_count = len({(r["username"], r["platform"]) for r in resolved})
+
+    # 1b. Presence — mention volume: name search signals (Brave, opt-in).
+    if name:
+        mention_query = f'"{name}"' + (f" {company}" if company else "")
+        mention = brave_search(mention_query)
+    else:
+        mention = {"configured": False, "level": "unknown", "query": ""}
 
     # 2. Breach exposure (HIBP, opt-in).
     hibp_on = bool(os.getenv("HAVEIBEENPWNED_API_KEY"))
@@ -342,7 +443,9 @@ def assess_vip(profile: dict) -> dict:
 
     # 3. Levels.
     levels = {
-        "presence": presence_level(resolved_count, bool(usernames)),
+        "presence": presence_level(
+            resolved_count, bool(usernames), mention.get("level", "unknown")
+        ),
         "discoverability": discoverability_level(breach_count, resolved_count, hibp_on),
         "geo": geo_level(country),
         "impersonation": impersonation_level(known_impersonations),
@@ -367,6 +470,8 @@ def assess_vip(profile: dict) -> dict:
             "resolved_count": resolved_count,
             "profiles": resolved,
             "checked_platforms": len(PROFILE_URL_PATTERNS),
+            "footprint_level": footprint_level(resolved_count, bool(usernames)),
+            "mention": mention,
         },
         "discoverability": {
             "hibp_configured": hibp_on,

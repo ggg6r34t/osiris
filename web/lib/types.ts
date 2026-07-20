@@ -226,6 +226,17 @@ export type VipScorecard = {
     resolved_count: number;
     profiles: { platform: string; url: string; username: string }[];
     checked_platforms: number;
+    footprint_level: RiskLevel;
+    mention: {
+      configured: boolean;
+      level: RiskLevel;
+      query?: string;
+      web_results?: number;
+      news_results?: number;
+      has_infobox?: boolean;
+      more_results_available?: boolean;
+      error?: string;
+    };
   };
   discoverability: {
     hibp_configured: boolean;

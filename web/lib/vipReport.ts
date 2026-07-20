@@ -71,8 +71,14 @@ export function openVipReport(sc: VipScorecard): void {
     )
     .join("");
 
+  const m = sc.presence.mention;
+  const mentionBasis = !m.configured
+    ? "mentions n/a"
+    : m.error
+      ? "mentions unavailable"
+      : `mentions ${m.level}${m.has_infobox ? " (knowledge panel)" : ""}`;
   const dims = [
-    ["Online presence", sc.levels.presence, `${sc.presence.resolved_count} of ${sc.presence.checked_platforms} platforms resolved`],
+    ["Online presence", sc.levels.presence, `footprint ${sc.presence.resolved_count}/${sc.presence.checked_platforms} · ${mentionBasis}`],
     ["Service discoverability", sc.levels.discoverability, sc.discoverability.hibp_configured ? `${sc.discoverability.breach_count} breach hits across ${sc.discoverability.emails.length} email(s)` : "HIBP not configured — resolution signals only"],
     ["Geo-location risk", sc.levels.geo, p.country || "no country supplied"],
     ["Impersonations", sc.levels.impersonation, `${sc.impersonation.confirmed} confirmed`],

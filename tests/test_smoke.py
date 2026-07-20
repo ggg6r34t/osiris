@@ -342,6 +342,12 @@ def test_vip_scoring_levels():
     assert vip.presence_level(1, True) == "low"
     assert vip.presence_level(0, False) == "unknown"
 
+    # presence blends footprint with mention volume: high on either axis wins,
+    # and mention rescues the name-only (no-handles) case.
+    assert vip.presence_level(1, True, "high") == "high"
+    assert vip.presence_level(0, False, "medium") == "medium"
+    assert vip.presence_level(9, True, "unknown") == "high"
+
     assert vip.discoverability_level(4, 0, True) == "high"
     assert vip.discoverability_level(1, 0, True) == "medium"
     assert vip.discoverability_level(0, 0, True) == "low"
@@ -387,6 +393,50 @@ def test_vip_overall_score_monotonic():
     assert 0 <= low < high <= 100
 
 
+def test_vip_mention_level_thresholds():
+    import osiris.vip as vip
+
+    assert vip.mention_level({"configured": False}) == "unknown"
+    assert vip.mention_level({"configured": True, "error": "HTTP 429"}) == "unknown"
+    assert (
+        vip.mention_level(
+            {"configured": True, "web_results": 2, "news_results": 0, "has_infobox": False}
+        )
+        == "low"
+    )
+    assert (
+        vip.mention_level(
+            {"configured": True, "web_results": 10, "news_results": 3, "has_infobox": False}
+        )
+        == "medium"
+    )
+    assert (
+        vip.mention_level(
+            {
+                "configured": True,
+                "web_results": 20,
+                "news_results": 5,
+                "has_infobox": True,
+                "more_results_available": True,
+            }
+        )
+        == "high"
+    )
+
+
+def test_vip_brave_graceful_without_key(monkeypatch):
+    import osiris.vip as vip
+
+    monkeypatch.delenv("BRAVE_SEARCH_API_KEY", raising=False)
+
+    def boom(*_a, **_k):
+        raise AssertionError("Brave called without an API key")
+
+    monkeypatch.setattr(vip.requests, "get", boom)
+    res = vip.brave_search('"Jane Executive"')
+    assert res["configured"] is False and res["level"] == "unknown"
+
+
 def test_vip_hibp_graceful_without_key(monkeypatch):
     import osiris.vip as vip
 
@@ -410,6 +460,7 @@ def test_vip_assess_shape_offline(monkeypatch):
     import osiris.vip as vip
 
     monkeypatch.delenv("HAVEIBEENPWNED_API_KEY", raising=False)
+    monkeypatch.delenv("BRAVE_SEARCH_API_KEY", raising=False)
     monkeypatch.setattr(vip, "resolve_handles", lambda _u: [])
 
     sc = vip.assess_vip(
@@ -419,6 +470,7 @@ def test_vip_assess_shape_offline(monkeypatch):
     assert sc["levels"]["geo"] == "high"
     assert isinstance(sc["overall_score"], int)
     assert sc["pivots"]["social"] and sc["pivots"]["family"]
+    assert sc["presence"]["mention"]["configured"] is False
 
 
 def test_takedown_email_builder():

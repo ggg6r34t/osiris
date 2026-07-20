@@ -327,9 +327,30 @@ export default function VipView() {
                 title="Online presence"
                 level={data.levels.presence}
                 detail={
-                  data.levels.presence === "unknown"
-                    ? "No handles supplied — add usernames discovered via the search pivots below."
-                    : `${data.presence.resolved_count} profiles resolved of ${data.presence.checked_platforms} platforms checked.`
+                  <span className="flex flex-col gap-0.5">
+                    <span>
+                      Footprint:{" "}
+                      {data.presence.footprint_level === "unknown"
+                        ? "no handles supplied"
+                        : `${data.presence.resolved_count}/${data.presence.checked_platforms} platforms`}
+                    </span>
+                    <span>
+                      Mentions:{" "}
+                      {!data.presence.mention.configured
+                        ? "set BRAVE_SEARCH_API_KEY for name-volume"
+                        : data.presence.mention.error
+                          ? "unavailable"
+                          : `${data.presence.mention.level}${
+                              data.presence.mention.has_infobox
+                                ? " · knowledge panel"
+                                : ""
+                            }${
+                              data.presence.mention.news_results
+                                ? ` · ${data.presence.mention.news_results} news`
+                                : ""
+                            }`}
+                    </span>
+                  </span>
                 }
               />
               <DimensionCard
