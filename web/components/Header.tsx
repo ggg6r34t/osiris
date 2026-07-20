@@ -16,7 +16,7 @@ export default function Header() {
               v1
             </span>
           </div>
-          <span className="text-[11px] text-fg-muted">OSINT link engine</span>
+          <span className="text-[11px] text-fg-muted">Investigation workbench</span>
         </div>
       </div>
 
