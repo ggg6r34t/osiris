@@ -250,6 +250,10 @@ organized into sections — **Search**, **Domain Tools**, **VIP**, **Cases**, **
   **refangs** defanged text (`hxxp`, `evil[.]com`, `user[at]host`), and extracts deduped indicators (domains, IPs,
   URLs, emails, MD5/SHA-1/SHA-256, CVEs) — then exports a **STIX 2.1 bundle** or **MISP event JSON** (importable,
   keyless) or files the indicators to a case. Case exports also gained **STIX** and **MISP** buttons.
+  **Email Triage** parses a pasted or uploaded **`.eml`**: authentication results (**SPF/DKIM/DMARC**), the
+  **Received** hop chain and best-guess **originating IP**, **From / Reply-To / Return-Path / display-name spoofing**
+  flags, executable/macro attachment detection (name/type/size + hashes), and extracted IOCs — rolled up into a
+  risk level. Add the findings to a case.
 - **VIP Investigation** — a protective-intelligence exposure scorecard for a person (executive-protection / DRP).
   Enter a VIP (name/aliases, emails, known handles, company, country) and Osiris scores four dimensions
   **High / Medium / Low** — online-presence volume (cross-platform handle resolution), service-account

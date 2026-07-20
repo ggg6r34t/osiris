@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import IocView from "./intake/IocView";
+import EmailTriageView from "./intake/EmailTriageView";
 
-type ToolKey = "ioc";
+type ToolKey = "ioc" | "email";
 
 const TOOLS: { key: ToolKey; label: string; blurb: string }[] = [
   { key: "ioc", label: "IOC Extract", blurb: "Paste a report → refanged indicators → STIX / MISP" },
+  { key: "email", label: "Email Triage", blurb: "Paste/upload .eml → auth, spoofing flags, origin IP, IOCs" },
 ];
 
 export default function IntakeTools() {
@@ -35,6 +37,7 @@ export default function IntakeTools() {
       <p className="-mt-2 font-mono text-xs text-fg-faint">{active.blurb}</p>
 
       {tool === "ioc" && <IocView />}
+      {tool === "email" && <EmailTriageView />}
     </div>
   );
 }

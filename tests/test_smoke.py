@@ -518,6 +518,63 @@ def test_ioc_export_dispatch():
         ioc.export_iocs({}, "bogus")
 
 
+def test_email_triage_spoof_detection():
+    import osiris.email_triage as et
+
+    raw = (
+        "From: PayPal Security <security@paypa1-alert.com>\n"
+        "Reply-To: collect@evil-harvest.ru\n"
+        "Return-Path: <bounce@evil-harvest.ru>\n"
+        "To: victim@example.com\n"
+        "Subject: verify now\n"
+        "Authentication-Results: mx; spf=fail; dkim=none; dmarc=fail\n"
+        "Received: from x (mail.evil-harvest.ru [45.66.77.88]) by mx; Mon, 1 Jan 2024 10:00:00 +0000\n"
+        "Content-Type: text/html\n\n"
+        "<html>Click <a href=\"hxxps://paypa1-verify[.]com/login\">here</a></html>\n"
+    )
+    r = et.analyze_email(raw)
+    assert r["risk"] == "high"
+    assert r["auth"] == {"spf": "fail", "dkim": "none", "dmarc": "fail"}
+    assert r["origin_ip"] == "45.66.77.88"
+    assert "https://paypa1-verify.com/login" in r["iocs"]["urls"]
+    texts = " ".join(f["text"] for f in r["flags"])
+    assert "Reply-To" in texts and "SPF" in texts
+
+
+def test_email_triage_clean_message():
+    import osiris.email_triage as et
+
+    raw = (
+        "From: Real Sender <alice@example.com>\n"
+        "To: bob@example.com\n"
+        "Subject: hello\n"
+        "Authentication-Results: mx; spf=pass; dkim=pass; dmarc=pass\n"
+        "Content-Type: text/plain\n\n"
+        "Just a normal message.\n"
+    )
+    r = et.analyze_email(raw)
+    assert r["risk"] == "low"
+    assert r["flags"] == []
+
+
+def test_email_triage_executable_attachment():
+    import osiris.email_triage as et
+
+    raw = (
+        "From: a@b.com\nTo: c@d.com\nSubject: invoice\n"
+        "Authentication-Results: mx; spf=pass; dkim=pass; dmarc=pass\n"
+        'Content-Type: multipart/mixed; boundary="X"\n\n'
+        "--X\nContent-Type: text/plain\n\nsee attached\n"
+        "--X\nContent-Type: application/octet-stream\n"
+        'Content-Disposition: attachment; filename="invoice.exe"\n\n'
+        "payload\n--X--\n"
+    )
+    r = et.analyze_email(raw)
+    assert any("Executable" in f["text"] for f in r["flags"])
+    assert r["attachments"][0]["filename"] == "invoice.exe"
+    assert r["attachments"][0]["sha256"]
+
+
 def test_takedown_lifecycle(tmp_path, monkeypatch):
     import osiris.storage as st
 

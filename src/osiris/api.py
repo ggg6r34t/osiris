@@ -1119,3 +1119,18 @@ def api_ioc_export(req: IocExportRequest):
         raise HTTPException(status_code=422, detail="format must be 'stix' or 'misp'")
     iocs = req.iocs if req.iocs is not None else extract_iocs(req.text or "")
     return _run(export_iocs, iocs, req.format, req.info)
+
+
+class EmailAnalyzeRequest(BaseModel):
+    raw: str
+
+
+@app.post("/api/email/analyze")
+def api_email_analyze(req: EmailAnalyzeRequest):
+    from osiris.email_triage import analyze_email
+
+    if not (req.raw or "").strip():
+        raise HTTPException(status_code=422, detail="Paste an email or upload a .eml file.")
+    result = _run(analyze_email, req.raw)
+    _record("email-triage", result.get("headers", {}).get("from_domain", ""), {"risk": result.get("risk")})
+    return result

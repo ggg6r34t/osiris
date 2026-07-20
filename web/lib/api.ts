@@ -12,6 +12,7 @@ import type {
   CaseSummary,
   CustomPlatformMap,
   DeepSearchResponse,
+  EmailAnalysis,
   HistoryEntry,
   IocExtractResult,
   IocSet,
@@ -397,6 +398,13 @@ export function exportIocs(
   return jsonFetch<unknown>("/api/ioc/export", {
     method: "POST",
     body: JSON.stringify(body),
+  });
+}
+
+export function analyzeEmail(raw: string): Promise<EmailAnalysis> {
+  return jsonFetch<EmailAnalysis>("/api/email/analyze", {
+    method: "POST",
+    body: JSON.stringify({ raw }),
   });
 }
 

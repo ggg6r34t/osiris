@@ -102,6 +102,12 @@ Key modules and how they relate:
   `osiris --monitor` (cron).
 - **`notify.py`** — opt-in alerting (Telegram + generic webhook), a no-op when unconfigured. `notify_new_findings`
   is called from `run_monitor`; `channels()`/`notify()` back the `/api/notify/*` endpoints.
+- **`ioc.py`** — IOC intake + interop: `refang()` undoes defanging, `extract_iocs()` pulls deduped
+  domains/IPs/URLs/emails/hashes/CVEs from free text, `to_stix_bundle()` / `to_misp_event()` build STIX 2.1 and
+  MISP-importable JSON (keyless/offline). Backs the Intake → IOC Extract tab and case STIX/MISP export.
+- **`email_triage.py`** — `.eml` phishing triage via stdlib `email`: auth results (SPF/DKIM/DMARC), Received chain
+  → origin IP, From/Reply-To/Return-Path/display-name spoof flags, attachment hashes, and IOCs (reuses `ioc.py`)
+  → flags + risk level. Backs Intake → Email Triage.
 - **`takedown.py`** — builds a pre-filled abuse/takedown email (`{to, subject, body}`) from enrichment-shaped data.
 - **`screenshot.py`** — optional headless page capture via Playwright (import-guarded; raises a typed
   "not installed" error so the UI degrades gracefully). Install via `requirements-screenshots.txt`.

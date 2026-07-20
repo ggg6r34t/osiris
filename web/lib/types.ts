@@ -211,6 +211,34 @@ export type IocSet = {
 
 export type IocExtractResult = { iocs: IocSet; count: number };
 
+export type EmailAnalysis = {
+  headers: {
+    from: string;
+    from_name: string;
+    from_domain: string;
+    to: string;
+    subject: string;
+    date: string;
+    reply_to: string;
+    return_path: string;
+    message_id: string;
+    x_mailer: string;
+  };
+  auth: { spf: string | null; dkim: string | null; dmarc: string | null };
+  origin_ip: string | null;
+  received_chain: { raw: string; ips: string[] }[];
+  flags: { level: "high" | "medium" | "low"; text: string }[];
+  risk: "high" | "medium" | "low";
+  iocs: IocSet;
+  attachments: {
+    filename: string;
+    content_type: string;
+    size: number;
+    md5: string | null;
+    sha256: string | null;
+  }[];
+};
+
 export type AbuseContactMethod = "email" | "form" | "none";
 
 export type AbuseEscalation = {
