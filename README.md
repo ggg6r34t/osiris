@@ -246,6 +246,10 @@ organized into sections — **Search**, **Domain Tools**, **VIP**, **Cases**, **
   and highlights newly-registered lookalikes vs. the last run — also `osiris --monitor` for cron), and **History**
   (recent runs). Enrich also has **bulk** mode, per-tool **CSV/JSON export**, a **↻ refresh** (cache bypass), a
   **takedown/abuse-email** generator, and **screenshots** of suspect pages.
+- **Intake** — turn reports into structured intelligence. **IOC Extract** takes a pasted alert/report/email body,
+  **refangs** defanged text (`hxxp`, `evil[.]com`, `user[at]host`), and extracts deduped indicators (domains, IPs,
+  URLs, emails, MD5/SHA-1/SHA-256, CVEs) — then exports a **STIX 2.1 bundle** or **MISP event JSON** (importable,
+  keyless) or files the indicators to a case. Case exports also gained **STIX** and **MISP** buttons.
 - **VIP Investigation** — a protective-intelligence exposure scorecard for a person (executive-protection / DRP).
   Enter a VIP (name/aliases, emails, known handles, company, country) and Osiris scores four dimensions
   **High / Medium / Low** — online-presence volume (cross-platform handle resolution), service-account

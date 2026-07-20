@@ -200,6 +200,17 @@ export type MonitorReport = {
 
 export type RiskLevel = "high" | "medium" | "low" | "unknown";
 
+export type IocSet = {
+  domains: string[];
+  ips: string[];
+  urls: string[];
+  emails: string[];
+  hashes: { md5: string[]; sha1: string[]; sha256: string[] };
+  cves: string[];
+};
+
+export type IocExtractResult = { iocs: IocSet; count: number };
+
 export type AbuseContactMethod = "email" | "form" | "none";
 
 export type AbuseEscalation = {

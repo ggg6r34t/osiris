@@ -1087,3 +1087,35 @@ def check_all_takedowns():
         "checked": len(results),
         "changed": [{"domain": r["domain"], "status": r["status"]} for r in changed],
     }
+
+
+# --------------------------------------------------------------------------- #
+# IOC extraction + interop export (STIX 2.1 / MISP)
+# --------------------------------------------------------------------------- #
+class IocExtractRequest(BaseModel):
+    text: str
+
+
+class IocExportRequest(BaseModel):
+    iocs: dict | None = None
+    text: str | None = None
+    format: str
+    info: str = "Osiris IOC export"
+
+
+@app.post("/api/ioc/extract")
+def api_ioc_extract(req: IocExtractRequest):
+    from osiris.ioc import extract_iocs, ioc_count
+
+    iocs = extract_iocs(req.text or "")
+    return {"iocs": iocs, "count": ioc_count(iocs)}
+
+
+@app.post("/api/ioc/export")
+def api_ioc_export(req: IocExportRequest):
+    from osiris.ioc import export_iocs, extract_iocs
+
+    if req.format not in ("stix", "misp"):
+        raise HTTPException(status_code=422, detail="format must be 'stix' or 'misp'")
+    iocs = req.iocs if req.iocs is not None else extract_iocs(req.text or "")
+    return _run(export_iocs, iocs, req.format, req.info)

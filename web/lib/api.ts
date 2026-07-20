@@ -13,6 +13,8 @@ import type {
   CustomPlatformMap,
   DeepSearchResponse,
   HistoryEntry,
+  IocExtractResult,
+  IocSet,
   DnstwistEntry,
   DomainMatch,
   EnrichResult,
@@ -378,6 +380,23 @@ export function assessVip(input: VipInput): Promise<VipScorecard> {
   return jsonFetch<VipScorecard>("/api/vip/assess", {
     method: "POST",
     body: JSON.stringify(input),
+  });
+}
+
+// --- IOC extraction + interop export ---
+export function extractIocs(text: string): Promise<IocExtractResult> {
+  return jsonFetch<IocExtractResult>("/api/ioc/extract", {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
+}
+
+export function exportIocs(
+  body: { iocs?: IocSet; text?: string; format: "stix" | "misp"; info?: string },
+): Promise<unknown> {
+  return jsonFetch<unknown>("/api/ioc/export", {
+    method: "POST",
+    body: JSON.stringify(body),
   });
 }
 

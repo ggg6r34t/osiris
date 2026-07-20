@@ -15,6 +15,8 @@ import {
   exportCaseCsv,
   exportCaseIocs,
   exportCaseJson,
+  exportCaseMisp,
+  exportCaseStix,
   openCaseReport,
 } from "@/lib/caseExport";
 import type { CaseDetail, CaseSummary, HistoryEntry } from "@/lib/types";
@@ -173,6 +175,8 @@ function CasesView() {
                         ["CSV", () => exportCaseCsv(active)],
                         ["JSON", () => exportCaseJson(active)],
                         ["IOCs", () => exportCaseIocs(active)],
+                        ["STIX", () => exportCaseStix(active)],
+                        ["MISP", () => exportCaseMisp(active)],
                         ["Report", () => openCaseReport(active)],
                       ] as const
                     ).map(([label, fn]) => (

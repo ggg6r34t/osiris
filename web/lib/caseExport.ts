@@ -1,4 +1,5 @@
-import type { CaseDetail, CaseItem } from "./types";
+import type { CaseDetail, CaseItem, IocSet } from "./types";
+import { exportIocs } from "./api";
 import { exportRows, triggerDownload } from "./export";
 
 function indicator(item: CaseItem): string {
@@ -52,6 +53,45 @@ export function exportCaseIocs(c: CaseDetail): void {
     [...set].join("\n"),
     "text/plain",
   );
+}
+
+function isIp(v: string): boolean {
+  return /^(?:\d{1,3}\.){3}\d{1,3}$/.test(v) || v.includes(":");
+}
+
+/** Collect domain/IP indicators from a case's items into an IocSet. */
+function caseIocSet(c: CaseDetail): IocSet {
+  const domains = new Set<string>();
+  const ips = new Set<string>();
+  const add = (v: unknown) => {
+    if (typeof v !== "string" || !v.trim()) return;
+    (isIp(v.trim()) ? ips : domains).add(v.trim());
+  };
+  for (const it of c.items) {
+    const d = (it.data ?? {}) as Record<string, unknown>;
+    add(d.domain);
+    add(d.ip);
+    if (Array.isArray(d.indicators)) d.indicators.forEach(add);
+  }
+  return {
+    domains: [...domains],
+    ips: [...ips],
+    urls: [],
+    emails: [],
+    hashes: { md5: [], sha1: [], sha256: [] },
+    cves: [],
+  };
+}
+
+/** Export a case's indicators as a STIX 2.1 bundle or MISP event JSON. */
+export async function exportCaseStix(c: CaseDetail): Promise<void> {
+  const doc = await exportIocs({ iocs: caseIocSet(c), format: "stix" });
+  triggerDownload(`case-${c.name}.stix.json`, JSON.stringify(doc, null, 2), "application/json");
+}
+
+export async function exportCaseMisp(c: CaseDetail): Promise<void> {
+  const doc = await exportIocs({ iocs: caseIocSet(c), format: "misp", info: `Osiris case: ${c.name}` });
+  triggerDownload(`case-${c.name}.misp.json`, JSON.stringify(doc, null, 2), "application/json");
 }
 
 /** Open a print-friendly HTML report in a new window (Save as PDF via print). */

@@ -473,6 +473,51 @@ def test_vip_assess_shape_offline(monkeypatch):
     assert sc["presence"]["mention"]["configured"] is False
 
 
+def test_ioc_extract_and_refang():
+    import osiris.ioc as ioc
+
+    blob = (
+        "phish hxxps://paypa1-secure[.]com/login and http://8.8.8.8/x.zip\n"
+        "sender attacker[at]evil[.]net md5 44d88612fea8a8f36de82e1278abb02f cve-2023-1234\n"
+        "attachment invoice.pdf"
+    )
+    r = ioc.extract_iocs(blob)
+    assert "paypa1-secure.com" in r["domains"]
+    assert "8.8.8.8" in r["ips"]
+    assert "https://paypa1-secure.com/login" in r["urls"]
+    assert "attacker@evil.net" in r["emails"]
+    assert "44d88612fea8a8f36de82e1278abb02f" in r["hashes"]["md5"]
+    assert "CVE-2023-1234" in r["cves"]
+    # file extension is not treated as a domain
+    assert not any(d.endswith(".pdf") for d in r["domains"])
+
+
+def test_ioc_stix_and_misp():
+    import osiris.ioc as ioc
+
+    iocs = ioc.extract_iocs("evil.com 1.2.3.4 http://evil.com/a bad@evil.com")
+    bundle = ioc.to_stix_bundle(iocs)
+    assert bundle["type"] == "bundle" and bundle["id"].startswith("bundle--")
+    assert all(o["type"] == "indicator" and o["pattern_type"] == "stix" for o in bundle["objects"])
+    assert any("domain-name:value = 'evil.com'" in o["pattern"] for o in bundle["objects"])
+
+    event = ioc.to_misp_event(iocs, info="test")["Event"]
+    assert event["info"] == "test"
+    types = {a["type"] for a in event["Attribute"]}
+    assert {"domain", "ip-dst", "url", "email-src"} <= types
+    assert ioc.ioc_count(iocs) == len(event["Attribute"])
+
+
+def test_ioc_export_dispatch():
+    import osiris.ioc as ioc
+    import pytest as _pytest
+
+    assert ioc.export_iocs({"domains": ["a.com"]}, "stix")["type"] == "bundle"
+    assert "Event" in ioc.export_iocs({"domains": ["a.com"]}, "misp")
+    with _pytest.raises(ValueError):
+        ioc.export_iocs({}, "bogus")
+
+
 def test_takedown_lifecycle(tmp_path, monkeypatch):
     import osiris.storage as st
 

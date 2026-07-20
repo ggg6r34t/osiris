@@ -163,6 +163,15 @@ export function BoltIcon(props: IconProps) {
   );
 }
 
+export function InboxIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 13h4l1.5 3h5L16 13h4" />
+      <path d="M4 13 6 5h12l2 8v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" />
+    </svg>
+  );
+}
+
 export function VipIcon(props: IconProps) {
   return (
     <svg {...base} {...props}>

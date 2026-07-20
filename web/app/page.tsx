@@ -10,12 +10,14 @@ import EmptyState from "@/components/EmptyState";
 import SettingsPanel from "@/components/SettingsPanel";
 import CustomPlatforms from "@/components/CustomPlatforms";
 import DomainTools from "@/components/DomainTools";
+import IntakeTools from "@/components/IntakeTools";
 import VipView from "@/components/VipView";
 import Workspace from "@/components/Workspace";
 import {
   AlertIcon,
   BoltIcon,
   CasesIcon,
+  InboxIcon,
   LayersIcon,
   SearchIcon,
   SlidersIcon,
@@ -31,6 +33,7 @@ import type {
 const NAV_ITEMS = [
   { key: "search" as const, label: "Search", icon: <SearchIcon className="h-5 w-5" /> },
   { key: "domain" as const, label: "Domain Tools", icon: <BoltIcon className="h-5 w-5" /> },
+  { key: "intake" as const, label: "Intake", icon: <InboxIcon className="h-5 w-5" /> },
   { key: "vip" as const, label: "VIP", icon: <VipIcon className="h-5 w-5" /> },
   { key: "cases" as const, label: "Cases", icon: <CasesIcon className="h-5 w-5" /> },
   { key: "custom" as const, label: "Custom Platforms", icon: <LayersIcon className="h-5 w-5" /> },
@@ -45,6 +48,10 @@ const SECTIONS: Record<TabKey, { title: string; desc: string }> = {
   domain: {
     title: "Domain Tools",
     desc: "Enrichment, lookalikes, clones, brand-abuse and combined scans.",
+  },
+  intake: {
+    title: "Intake",
+    desc: "Turn reports into structured intelligence — extract IOCs and export STIX / MISP.",
   },
   vip: {
     title: "VIP Investigation",
@@ -196,6 +203,8 @@ export default function Home() {
             )}
 
             {tab === "domain" && <DomainTools />}
+
+            {tab === "intake" && <IntakeTools />}
 
             {tab === "vip" && <VipView />}
 
