@@ -16,6 +16,7 @@ import type {
   HistoryEntry,
   IocExtractResult,
   IocSet,
+  Metrics,
   DnstwistEntry,
   DomainMatch,
   EnrichResult,
@@ -422,6 +423,10 @@ export function analyzeEmail(raw: string): Promise<EmailAnalysis> {
     method: "POST",
     body: JSON.stringify({ raw }),
   });
+}
+
+export function getMetrics(): Promise<Metrics> {
+  return jsonFetch<Metrics>("/api/metrics");
 }
 
 // --- Takedown lifecycle tracking ---

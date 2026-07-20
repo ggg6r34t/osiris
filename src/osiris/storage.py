@@ -378,3 +378,88 @@ def delete_takedown(takedown_id: int) -> None:
         db = _db()
         db.execute("DELETE FROM takedowns WHERE id=?", (takedown_id,))
         db.commit()
+
+
+# --------------------------------------------------------------------------- #
+# Metrics (KPIs over cases / takedowns / history)
+# --------------------------------------------------------------------------- #
+def _mean(xs: list) -> Optional[float]:
+    return round(sum(xs) / len(xs), 2) if xs else None
+
+
+def _median(xs: list) -> Optional[float]:
+    if not xs:
+        return None
+    s = sorted(xs)
+    n = len(s)
+    m = n // 2
+    return round(s[m] if n % 2 else (s[m - 1] + s[m]) / 2, 2)
+
+
+def metrics() -> dict:
+    with _lock:
+        db = _db()
+        tds = db.execute("SELECT * FROM takedowns").fetchall()
+        events = db.execute("SELECT takedown_id, ts, kind, detail FROM takedown_events").fetchall()
+        cases_count = db.execute("SELECT COUNT(*) c FROM cases").fetchone()["c"]
+        item_status = db.execute("SELECT status, COUNT(*) c FROM case_items GROUP BY status").fetchall()
+        hist = db.execute("SELECT tool, COUNT(*) c FROM history GROUP BY tool ORDER BY c DESC").fetchall()
+        hist_total = db.execute("SELECT COUNT(*) c FROM history").fetchone()["c"]
+        watch_count = db.execute("SELECT COUNT(*) c FROM watchlist").fetchone()["c"]
+
+    now = time.time()
+    # earliest 'down' timestamp per takedown (manual status or auto-detected)
+    down_ts: dict = {}
+    for e in events:
+        detail = e["detail"] or ""
+        is_down = (e["kind"] == "status" and detail == "down") or (
+            e["kind"] == "auto" and detail.startswith("Detected DOWN")
+        )
+        if is_down:
+            tid = e["takedown_id"]
+            down_ts[tid] = min(down_ts.get(tid, e["ts"]), e["ts"])
+
+    by_status: dict = {}
+    open_count = relisted = 0
+    aging = {"0-7": 0, "8-30": 0, "31+": 0}
+    mttr = []
+    for t in tds:
+        by_status[t["status"]] = by_status.get(t["status"], 0) + 1
+        if t["status"] not in ("closed", "false_positive"):
+            open_count += 1
+            started = t["reported_at"] or t["created_at"]
+            days = (now - started) / 86400
+            if days <= 7:
+                aging["0-7"] += 1
+            elif days <= 30:
+                aging["8-30"] += 1
+            else:
+                aging["31+"] += 1
+        if t["status"] == "relisted":
+            relisted += 1
+        if t["reported_at"] and t["id"] in down_ts:
+            delta = (down_ts[t["id"]] - t["reported_at"]) / 86400
+            if delta >= 0:
+                mttr.append(delta)
+
+    return {
+        "takedowns": {
+            "total": len(tds),
+            "open": open_count,
+            "relisted": relisted,
+            "by_status": by_status,
+            "aging": aging,
+            "mttr_days_mean": _mean(mttr),
+            "mttr_days_median": _median(mttr),
+            "resolved_count": len(mttr),
+        },
+        "cases": {
+            "total": cases_count,
+            "items_by_status": {r["status"]: r["c"] for r in item_status},
+        },
+        "history": {
+            "total": hist_total,
+            "by_tool": {r["tool"]: r["c"] for r in hist},
+        },
+        "watchlist": watch_count,
+    }

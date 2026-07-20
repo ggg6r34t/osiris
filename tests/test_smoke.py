@@ -652,6 +652,34 @@ def test_email_triage_executable_attachment():
     assert r["attachments"][0]["sha256"]
 
 
+def test_metrics_aggregation(tmp_path, monkeypatch):
+    import osiris.storage as st
+
+    monkeypatch.setattr(st, "DB_PATH", str(tmp_path / "m.db"))
+    monkeypatch.setattr(st, "_conn", None)
+
+    # empty DB
+    m0 = st.metrics()
+    assert m0["takedowns"]["total"] == 0 and m0["takedowns"]["mttr_days_mean"] is None
+
+    # one takedown that went down, one still open
+    t1 = st.create_takedown("a.com")
+    st.update_takedown(t1, status="reported")
+    st.record_takedown_check(t1, "nxdomain")  # → down (contributes to MTTR)
+    t2 = st.create_takedown("b.com")
+    st.update_takedown(t2, status="reported")
+    st.create_case("c1")
+    st.add_history("enrich", "x", {})
+
+    m = st.metrics()
+    assert m["takedowns"]["total"] == 2
+    assert m["takedowns"]["by_status"].get("down") == 1
+    assert m["takedowns"]["resolved_count"] == 1
+    assert m["takedowns"]["mttr_days_mean"] is not None
+    assert m["cases"]["total"] == 1
+    assert m["history"]["by_tool"].get("enrich") == 1
+
+
 def test_takedown_lifecycle(tmp_path, monkeypatch):
     import osiris.storage as st
 

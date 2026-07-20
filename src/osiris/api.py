@@ -1142,6 +1142,11 @@ def api_url_analyze(req: UrlAnalyzeRequest):
     return result
 
 
+@app.get("/api/metrics")
+def api_metrics():
+    return storage.metrics()
+
+
 @app.post("/api/reputation")
 def api_reputation(req: DomainRequest):
     from osiris.feeds import check_reputation

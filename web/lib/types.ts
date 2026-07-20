@@ -426,6 +426,22 @@ export type Takedown = {
   status_changed?: boolean;
 };
 
+export type Metrics = {
+  takedowns: {
+    total: number;
+    open: number;
+    relisted: number;
+    by_status: Record<string, number>;
+    aging: { "0-7": number; "8-30": number; "31+": number };
+    mttr_days_mean: number | null;
+    mttr_days_median: number | null;
+    resolved_count: number;
+  };
+  cases: { total: number; items_by_status: Record<string, number> };
+  history: { total: number; by_tool: Record<string, number> };
+  watchlist: number;
+};
+
 export type AlertChannels = { telegram: boolean; webhook: boolean };
 
 export type AlertTestResult = {
