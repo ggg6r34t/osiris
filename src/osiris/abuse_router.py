@@ -180,6 +180,12 @@ def dns_records(domain: str) -> dict:
 # HTTP liveness + CDN detection
 # --------------------------------------------------------------------------- #
 def http_liveness(domain: str) -> dict:
+    from osiris.netguard import BlockedTargetError, assert_host_allowed
+
+    try:
+        assert_host_allowed(domain)
+    except BlockedTargetError as e:
+        return {"alive": False, "status_code": None, "error": "blocked", "blocked_reason": str(e)}
     url = "http://" + domain
     try:
         r = requests.head(

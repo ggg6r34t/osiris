@@ -45,6 +45,9 @@ def get_proxies() -> Optional[dict]:
 
 
 def http_get(url: str, **kwargs):
+    from osiris.netguard import assert_url_allowed
+
+    assert_url_allowed(url)  # SSRF guard: block private/loopback/metadata targets
     timeout = kwargs.pop("timeout", get_request_timeout())
     proxies = kwargs.pop("proxies", get_proxies())
     verify = kwargs.pop("verify", os.getenv("OSIRIS_VERIFY_TLS", "true").lower() != "false")

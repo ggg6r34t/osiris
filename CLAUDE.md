@@ -102,6 +102,11 @@ Key modules and how they relate:
   `osiris --monitor` (cron).
 - **`notify.py`** — opt-in alerting (Telegram + generic webhook), a no-op when unconfigured. `notify_new_findings`
   is called from `run_monitor`; `channels()`/`notify()` back the `/api/notify/*` endpoints.
+- **`netguard.py`** — SSRF guard. `assert_url_allowed()` / `assert_host_allowed()` reject non-http(s) schemes and
+  hosts that resolve to private/loopback/link-local (incl. `169.254.169.254` metadata)/reserved/multicast
+  addresses, raising `BlockedTargetError`. Wired into `enrichment.http_get` (covers Enrich), `url_analyzer`,
+  `abuse_router.http_liveness`, and `screenshot.capture`. Bypass with `OSIRIS_ALLOW_PRIVATE_TARGETS=true`. Any new
+  server-side fetch of user-supplied hosts should call it.
 - **`ioc.py`** — IOC intake + interop: `refang()` undoes defanging, `extract_iocs()` pulls deduped
   domains/IPs/URLs/emails/hashes/CVEs from free text, `to_stix_bundle()` / `to_misp_event()` build STIX 2.1 and
   MISP-importable JSON (keyless/offline). Backs the Intake → IOC Extract tab and case STIX/MISP export.

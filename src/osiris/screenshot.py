@@ -16,6 +16,10 @@ class ScreenshotUnavailable(RuntimeError):
 def capture(url: str, timeout_ms: int = 20000) -> bytes:
     """Return a PNG screenshot of `url` (above-the-fold). Sync Playwright API —
     the caller runs this in a worker thread with no asyncio loop."""
+    from osiris.netguard import assert_url_allowed
+
+    assert_url_allowed(url)  # SSRF guard: never screenshot a private/metadata target
+
     try:
         from playwright.sync_api import sync_playwright
     except ImportError as e:

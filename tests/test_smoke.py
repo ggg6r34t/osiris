@@ -473,6 +473,59 @@ def test_vip_assess_shape_offline(monkeypatch):
     assert sc["presence"]["mention"]["configured"] is False
 
 
+def test_netguard_blocks_private_and_schemes(monkeypatch):
+    import osiris.netguard as ng
+
+    monkeypatch.delenv("OSIRIS_ALLOW_PRIVATE_TARGETS", raising=False)
+    # IP literals
+    assert ng.ip_is_blocked("127.0.0.1")
+    assert ng.ip_is_blocked("10.0.0.5")
+    assert ng.ip_is_blocked("169.254.169.254")  # cloud metadata
+    assert ng.ip_is_blocked("::1")
+    assert not ng.ip_is_blocked("8.8.8.8")
+    # host checks (IP literals, no DNS)
+    assert ng.check_host("192.168.1.1") is not None
+    assert ng.check_host("8.8.8.8") is None
+    # scheme + target enforcement
+    with pytest.raises(ng.BlockedTargetError):
+        ng.assert_url_allowed("file:///etc/passwd")
+    with pytest.raises(ng.BlockedTargetError):
+        ng.assert_url_allowed("http://127.0.0.1/admin")
+    with pytest.raises(ng.BlockedTargetError):
+        ng.assert_host_allowed("10.1.2.3")
+
+
+def test_netguard_allow_override(monkeypatch):
+    import osiris.netguard as ng
+
+    monkeypatch.setenv("OSIRIS_ALLOW_PRIVATE_TARGETS", "true")
+    assert ng.check_host("127.0.0.1") is None
+    ng.assert_url_allowed("http://10.0.0.1/")  # no raise
+
+
+def test_url_analyze_blocks_internal(monkeypatch):
+    import osiris.url_analyzer as ua
+
+    monkeypatch.delenv("OSIRIS_ALLOW_PRIVATE_TARGETS", raising=False)
+
+    def boom(*_a, **_k):
+        raise AssertionError("request sent to a blocked target")
+
+    monkeypatch.setattr(ua.requests, "get", boom)
+    r = ua.analyze_url("http://169.254.169.254/latest/meta-data/")
+    assert r["reachable"] is False and r["error"] == "blocked"
+
+
+def test_http_get_blocks_private(monkeypatch):
+    import osiris.enrichment as en
+
+    monkeypatch.delenv("OSIRIS_ALLOW_PRIVATE_TARGETS", raising=False)
+    import osiris.netguard as ng
+
+    with pytest.raises(ng.BlockedTargetError):
+        en.http_get("http://127.0.0.1:8000/")
+
+
 def test_ioc_extract_and_refang():
     import osiris.ioc as ioc
 

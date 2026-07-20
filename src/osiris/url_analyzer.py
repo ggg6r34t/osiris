@@ -97,6 +97,13 @@ def analyze_url(url: str) -> dict:
     if not url.startswith(("http://", "https://")):
         url = "http://" + url
 
+    from osiris.netguard import BlockedTargetError, assert_url_allowed
+
+    try:
+        assert_url_allowed(url)
+    except BlockedTargetError as e:
+        return {"input": url, "reachable": False, "error": "blocked", "blocked_reason": str(e)}
+
     headers = {"User-Agent": os.getenv("OSIRIS_USER_AGENT", "Mozilla/5.0 (compatible; Osiris-URLAnalyzer/1.0)")}
     verify = os.getenv("OSIRIS_VERIFY_TLS", "true").lower() != "false"
     try:

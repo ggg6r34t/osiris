@@ -346,6 +346,9 @@ Osiris supports environment-based configuration for production usage:
 - `OSIRIS_HTTP_PROXY` — Proxy URL for HTTP requests.
 - `OSIRIS_HTTPS_PROXY` — Proxy URL for HTTPS requests.
 - `OSIRIS_VERIFY_TLS` — Set to `false` to disable TLS verification.
+- `OSIRIS_ALLOW_PRIVATE_TARGETS` — SSRF guard. By default, server-side fetches (URL Analyze, Enrich, Abuse Router,
+  screenshots) refuse hosts resolving to private/loopback/link-local (incl. cloud-metadata `169.254.169.254`)/
+  reserved addresses and non-http(s) schemes. Set to `true` only to deliberately scan internal hosts on a trusted network.
 - `ABUSEIPDB_API_KEY` — Enables AbuseIPDB lookups during enrichment.
 - `SECURITYTRAILS_API_KEY` — Enables passive DNS history lookups.
 - `IPINFO_TOKEN` — Improves abuse contact resolution in hosting info.
