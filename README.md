@@ -260,6 +260,11 @@ Copy `.env.example` to `.env` (gitignored) and fill in what you need — `run.sh
 - **Screenshots** (optional) — capture suspect/lookalike/clone pages headlessly. Install once:
   `pip install -r requirements-screenshots.txt && playwright install chromium`. Without it, the camera button
   shows a clear "install to enable" message and nothing else is affected.
+- **Monitoring alerts** (optional) — when a monitor run (Run monitor button or `osiris --monitor`) finds new
+  lookalikes, Osiris can push a notification. Telegram: set `OSIRIS_TELEGRAM_BOT_TOKEN` (from @BotFather) and
+  `OSIRIS_TELEGRAM_CHAT_ID`. Generic webhook: set `OSIRIS_ALERT_WEBHOOK_URL` (Osiris POSTs `{"text", "data"}` —
+  point it at an internal endpoint to keep alert data off external services). Both are off unless set; use the
+  Monitor tab's **Send test** button to verify wiring. Note: alerts push finding data to the configured channel.
 
 ### Tests
 

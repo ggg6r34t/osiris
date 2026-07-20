@@ -916,3 +916,27 @@ def api_monitor_run(req: WatchRequest):
     new_count = sum(len(r.get("new") or []) for r in report.values())
     _record("monitor", target, {"new": new_count})
     return {"target": target, "report": report}
+
+
+# --------------------------------------------------------------------------- #
+# Alerting (Telegram / webhook) — opt-in via env, off by default
+# --------------------------------------------------------------------------- #
+@app.get("/api/notify/status")
+def api_notify_status():
+    from osiris import notify
+
+    return {"channels": notify.channels()}
+
+
+@app.post("/api/notify/test")
+def api_notify_test():
+    from osiris import notify
+
+    ch = notify.channels()
+    if not (ch["telegram"] or ch["webhook"]):
+        return {"configured": False, "channels": ch, "results": {}}
+    results = notify.notify(
+        "[Osiris] Test alert — alerting is configured and working.",
+        {"test": True},
+    )
+    return {"configured": True, "channels": ch, "results": results}

@@ -6,7 +6,7 @@ each run reports NEW / gone domains relative to the previous run.
 """
 from typing import Callable
 
-from osiris import storage
+from osiris import notify, storage
 from osiris.domain_matcher import find_similar_domains
 from osiris.dnstwist import run_dnstwist
 
@@ -37,9 +37,13 @@ def diff(prev: list[str] | None, current: list[str]) -> dict:
     }
 
 
-def run_monitor(target: str) -> dict:
+def run_monitor(target: str, alert: bool = True) -> dict:
     """Run each monitor tool for `target`, diff vs last snapshot, persist, and
-    return {tool: {current, new, gone, first_run}}."""
+    return {tool: {current, new, gone, first_run}}.
+
+    When `alert` is set and any NEW lookalikes are found, fire configured alert
+    channels (Telegram / webhook) — a no-op if none are configured.
+    """
     tools: dict[str, Callable[[str], list[str]]] = {
         "domain-match": _match_domains,
         "dnstwist": _dnstwist_domains,
@@ -56,4 +60,11 @@ def run_monitor(target: str) -> dict:
         report[tool] = {"current": current, **d}
 
     storage.add_watch(target)
+
+    if alert:
+        try:
+            notify.notify_new_findings(target, report)
+        except Exception:  # noqa: BLE001 - alerting must never abort a monitor run
+            pass
+
     return report

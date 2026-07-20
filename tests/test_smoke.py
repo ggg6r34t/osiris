@@ -285,6 +285,55 @@ def test_run_monitor_flags_new(tmp_path, monkeypatch):
     assert r2["domain-match"]["gone"] == []
 
 
+def test_notify_channels_detects_env(monkeypatch):
+    import osiris.notify as nt
+
+    for var in (
+        "OSIRIS_TELEGRAM_BOT_TOKEN",
+        "OSIRIS_TELEGRAM_CHAT_ID",
+        "OSIRIS_ALERT_WEBHOOK_URL",
+    ):
+        monkeypatch.delenv(var, raising=False)
+    assert nt.channels() == {"telegram": False, "webhook": False}
+
+    monkeypatch.setenv("OSIRIS_TELEGRAM_BOT_TOKEN", "t")
+    monkeypatch.setenv("OSIRIS_TELEGRAM_CHAT_ID", "c")
+    monkeypatch.setenv("OSIRIS_ALERT_WEBHOOK_URL", "http://x/hook")
+    assert nt.channels() == {"telegram": True, "webhook": True}
+
+
+def test_notify_no_op_when_unconfigured(monkeypatch):
+    """Unconfigured channels must skip without any network call."""
+    import osiris.notify as nt
+
+    for var in (
+        "OSIRIS_TELEGRAM_BOT_TOKEN",
+        "OSIRIS_TELEGRAM_CHAT_ID",
+        "OSIRIS_ALERT_WEBHOOK_URL",
+    ):
+        monkeypatch.delenv(var, raising=False)
+
+    def boom(*_a, **_k):  # any HTTP attempt is a bug when unconfigured
+        raise AssertionError("network call attempted while unconfigured")
+
+    monkeypatch.setattr(nt.requests, "post", boom)
+    res = nt.notify("hello")
+    assert res["telegram"] == {"ok": False, "skipped": True}
+    assert res["webhook"] == {"ok": False, "skipped": True}
+
+
+def test_notify_build_findings_message():
+    import osiris.notify as nt
+
+    empty = {"domain-match": {"new": [], "gone": []}}
+    assert nt.build_findings_message("x.com", empty) is None
+
+    report = {"domain-match": {"new": ["a.com", "b.com"]}, "dnstwist": {"new": []}}
+    text, payload = nt.build_findings_message("x.com", report)
+    assert "x.com" in text and "a.com" in text
+    assert payload["new"] == {"domain-match": ["a.com", "b.com"]}
+
+
 def test_takedown_email_builder():
     enrichment = {
         "domain": "evil-paypa1.com",

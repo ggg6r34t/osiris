@@ -1,4 +1,6 @@
 import type {
+  AlertChannels,
+  AlertTestResult,
   BrandAbuseResponse,
   BulkEnrichResponse,
   GenerateRegexResponse,
@@ -356,4 +358,13 @@ export function runMonitor(target: string): Promise<MonitorReport> {
     method: "POST",
     body: JSON.stringify({ target }),
   });
+}
+
+export async function getAlertChannels(): Promise<AlertChannels> {
+  const d = await jsonFetch<{ channels: AlertChannels }>("/api/notify/status");
+  return d.channels;
+}
+
+export function testAlerts(): Promise<AlertTestResult> {
+  return jsonFetch<AlertTestResult>("/api/notify/test", { method: "POST" });
 }

@@ -1,8 +1,90 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { addWatch, getWatchlist, removeWatch, runMonitor } from "@/lib/api";
-import type { MonitorReport, WatchTarget } from "@/lib/types";
+import {
+  addWatch,
+  getAlertChannels,
+  getWatchlist,
+  removeWatch,
+  runMonitor,
+  testAlerts,
+} from "@/lib/api";
+import type { AlertChannels, MonitorReport, WatchTarget } from "@/lib/types";
+
+function AlertsBar() {
+  const [channels, setChannels] = useState<AlertChannels | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+
+  useEffect(() => {
+    getAlertChannels()
+      .then(setChannels)
+      .catch(() => setChannels({ telegram: false, webhook: false }));
+  }, []);
+
+  const configured = channels && (channels.telegram || channels.webhook);
+
+  async function sendTest() {
+    setTesting(true);
+    setResult(null);
+    try {
+      const r = await testAlerts();
+      if (!r.configured) {
+        setResult("Not configured");
+      } else {
+        const ok = Object.entries(r.results)
+          .filter(([, v]) => !v.skipped)
+          .map(([k, v]) => `${k}: ${v.ok ? "sent" : v.error || `HTTP ${v.status}`}`)
+          .join(" · ");
+        setResult(ok || "Sent");
+      }
+    } catch (e) {
+      setResult(e instanceof Error ? e.message : "Test failed");
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line-soft bg-canvas px-3 py-2">
+      <span className="font-mono text-[11px] uppercase tracking-wider text-fg-muted">
+        Alerts
+      </span>
+      <span
+        className={`rounded border px-1.5 py-px font-mono text-[10px] ${
+          channels?.telegram
+            ? "border-live/40 bg-live/10 text-live"
+            : "border-line text-fg-faint"
+        }`}
+      >
+        Telegram {channels?.telegram ? "on" : "off"}
+      </span>
+      <span
+        className={`rounded border px-1.5 py-px font-mono text-[10px] ${
+          channels?.webhook
+            ? "border-live/40 bg-live/10 text-live"
+            : "border-line text-fg-faint"
+        }`}
+      >
+        Webhook {channels?.webhook ? "on" : "off"}
+      </span>
+      <button
+        type="button"
+        onClick={sendTest}
+        disabled={testing || !configured}
+        className="ml-auto rounded-md border border-line px-2.5 py-1 text-xs font-medium text-fg-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-40"
+        title={
+          configured
+            ? "Send a test alert to configured channels"
+            : "Set OSIRIS_TELEGRAM_BOT_TOKEN + OSIRIS_TELEGRAM_CHAT_ID (or OSIRIS_ALERT_WEBHOOK_URL) in .env"
+        }
+      >
+        {testing ? "Sending…" : "Send test"}
+      </button>
+      {result && <span className="font-mono text-[11px] text-fg-faint">{result}</span>}
+    </div>
+  );
+}
 
 function ToolReport({
   tool,
@@ -121,7 +203,10 @@ export default function MonitorView() {
       <p className="-mt-2 text-xs text-fg-faint">
         Re-runs Domain Match + DNSTwist and highlights newly-registered lookalikes
         since the last run. Also runnable from the CLI: <code>osiris --monitor</code> (cron-friendly).
+        New findings can be pushed to Telegram or a webhook.
       </p>
+
+      <AlertsBar />
 
       {error && <p className="text-sm text-danger">{error}</p>}
 

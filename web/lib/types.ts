@@ -198,6 +198,14 @@ export type MonitorReport = {
   report: Record<string, MonitorToolReport>;
 };
 
+export type AlertChannels = { telegram: boolean; webhook: boolean };
+
+export type AlertTestResult = {
+  configured: boolean;
+  channels: AlertChannels;
+  results: Record<string, { ok?: boolean; skipped?: boolean; status?: number; error?: string }>;
+};
+
 export type RegexLevel = "conservative" | "balanced" | "aggressive";
 
 export type GenerateRegexResponse = {
