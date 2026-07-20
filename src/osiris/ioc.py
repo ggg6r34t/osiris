@@ -39,6 +39,7 @@ _FILE_EXTS = {
     "rar", "7z", "png", "jpg", "jpeg", "gif", "bmp", "svg", "txt", "csv",
     "json", "xml", "html", "htm", "js", "py", "sh", "bin", "dat", "log",
     "msi", "iso", "gz", "tar", "bat", "ps1", "vbs", "jar", "apk", "dmg",
+    "php", "asp", "aspx", "jsp", "cgi", "pl", "rb", "go", "css",
 }
 
 

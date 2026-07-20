@@ -1121,6 +1121,27 @@ def api_ioc_export(req: IocExportRequest):
     return _run(export_iocs, iocs, req.format, req.info)
 
 
+class UrlAnalyzeRequest(BaseModel):
+    url: str
+    refresh: bool = False
+
+
+@app.post("/api/url-analyze")
+def api_url_analyze(req: UrlAnalyzeRequest):
+    from osiris.url_analyzer import analyze_url
+
+    url = (req.url or "").strip()
+    if not url:
+        raise HTTPException(status_code=422, detail="A URL is required.")
+    result = _cached(
+        f"urlanalyze:{url}",
+        lambda: _bounded(lambda: _run(analyze_url, url), 60),
+        refresh=req.refresh,
+    )
+    _record("url-analyze", url, {"risk": result.get("risk"), "reachable": result.get("reachable")})
+    return result
+
+
 class EmailAnalyzeRequest(BaseModel):
     raw: str
 

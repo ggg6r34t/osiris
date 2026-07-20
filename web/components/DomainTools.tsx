@@ -3,6 +3,7 @@
 import { useState } from "react";
 import EnrichView from "./domain/EnrichView";
 import AbuseRouterView from "./domain/AbuseRouterView";
+import UrlAnalyzeView from "./domain/UrlAnalyzeView";
 import DomainMatchView from "./domain/DomainMatchView";
 import DnstwistView from "./domain/DnstwistView";
 import CloneDetectView from "./domain/CloneDetectView";
@@ -13,6 +14,7 @@ import { PhishingDorksView, TextCloneView } from "./domain/LinkToolView";
 
 type ToolKey =
   | "enrich"
+  | "url-analyze"
   | "abuse-router"
   | "ip-pivot"
   | "domain-match"
@@ -25,6 +27,7 @@ type ToolKey =
 
 const TOOLS: { key: ToolKey; label: string; blurb: string }[] = [
   { key: "enrich", label: "Enrich", blurb: "WHOIS · DNS · hosting · SSL · risk" },
+  { key: "url-analyze", label: "URL Analyze", blurb: "Fetch page · credential forms · brand impersonation" },
   { key: "abuse-router", label: "Abuse Router", blurb: "Who to report to · is it still live?" },
   { key: "ip-pivot", label: "IP Pivot", blurb: "Reverse-IP · co-hosted domains" },
   { key: "domain-match", label: "Domain Match", blurb: "Registered lookalikes" },
@@ -62,6 +65,7 @@ export default function DomainTools() {
       <p className="-mt-2 font-mono text-xs text-fg-faint">{active.blurb}</p>
 
       {tool === "enrich" && <EnrichView />}
+      {tool === "url-analyze" && <UrlAnalyzeView />}
       {tool === "abuse-router" && <AbuseRouterView />}
       {tool === "ip-pivot" && <IpPivotView />}
       {tool === "domain-match" && <DomainMatchView />}

@@ -239,6 +239,31 @@ export type EmailAnalysis = {
   }[];
 };
 
+export type UrlAnalysis = {
+  input: string;
+  reachable: boolean;
+  error?: string;
+  final_url?: string;
+  status_code?: number;
+  final_domain?: string;
+  title?: string;
+  redirect_chain?: { url: string; status: number; server: string }[];
+  forms?: {
+    action: string;
+    method: string;
+    has_password: boolean;
+    cross_domain: boolean;
+    suspicious_scheme: boolean;
+    input_count: number;
+  }[];
+  credential_forms?: number;
+  targeted_brands?: string[];
+  meta_refresh?: boolean;
+  flags?: { level: "high" | "medium" | "low"; text: string }[];
+  risk?: "high" | "medium" | "low";
+  iocs?: IocSet;
+};
+
 export type AbuseContactMethod = "email" | "form" | "none";
 
 export type AbuseEscalation = {

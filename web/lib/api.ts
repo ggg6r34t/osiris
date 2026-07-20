@@ -28,6 +28,7 @@ import type {
   Settings,
   Takedown,
   TakedownEmail,
+  UrlAnalysis,
   VipInput,
   VipScorecard,
   WatchTarget,
@@ -398,6 +399,13 @@ export function exportIocs(
   return jsonFetch<unknown>("/api/ioc/export", {
     method: "POST",
     body: JSON.stringify(body),
+  });
+}
+
+export function analyzeUrl(url: string, refresh = false): Promise<UrlAnalysis> {
+  return jsonFetch<UrlAnalysis>("/api/url-analyze", {
+    method: "POST",
+    body: JSON.stringify({ url, refresh }),
   });
 }
 

