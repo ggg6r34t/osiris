@@ -165,6 +165,15 @@ export async function removeCustomPlatform(
   return data.platforms;
 }
 
+export async function importCustomPlatforms(
+  platforms: CustomPlatformMap,
+): Promise<{ platforms: CustomPlatformMap; added: number; skipped: string[] }> {
+  return jsonFetch("/api/custom-platforms/import", {
+    method: "POST",
+    body: JSON.stringify({ platforms }),
+  });
+}
+
 // ---- Domain-intelligence tools ----
 export function enrichDomain(
   domain: string,

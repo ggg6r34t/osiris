@@ -448,6 +448,42 @@ def delete_custom_platform(req: RemoveCustomPlatformRequest):
     return {"platforms": load_custom_platforms() or {}}
 
 
+class ImportCustomPlatformsRequest(BaseModel):
+    platforms: dict
+
+
+@app.post("/api/custom-platforms/import")
+def import_custom_platforms(req: ImportCustomPlatformsRequest):
+    """Bulk-merge a {category: {name: url}} map into custom platforms. Invalid
+    entries (bad scheme / missing {query}) are skipped and reported."""
+    from osiris.platform_functions import save_custom_platforms
+
+    merged = load_custom_platforms() or {}
+    added, skipped = 0, []
+    if not isinstance(req.platforms, dict):
+        raise HTTPException(status_code=422, detail="Expected a {category: {name: url}} object.")
+    for category, entries in req.platforms.items():
+        if not isinstance(entries, dict):
+            skipped.append(f"{category}: not an object")
+            continue
+        cat = str(category).strip()
+        for name, url in entries.items():
+            nm, u = str(name).strip(), str(url).strip()
+            if not cat or not nm or not u:
+                skipped.append(f"{category}/{name}: empty field")
+                continue
+            if not (u.lower().startswith("http://") or u.lower().startswith("https://")):
+                skipped.append(f"{cat}/{nm}: bad scheme")
+                continue
+            if "{query}" not in u:
+                skipped.append(f"{cat}/{nm}: missing {{query}}")
+                continue
+            merged.setdefault(cat, {})[nm] = u
+            added += 1
+    save_custom_platforms(merged)
+    return {"platforms": load_custom_platforms() or {}, "added": added, "skipped": skipped}
+
+
 # --------------------------------------------------------------------------- #
 # Domain-intelligence tools (Phase 2)
 #

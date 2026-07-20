@@ -473,6 +473,28 @@ def test_vip_assess_shape_offline(monkeypatch):
     assert sc["presence"]["mention"]["configured"] is False
 
 
+def test_import_custom_platforms_validation(tmp_path, monkeypatch):
+    import osiris.platform_functions as pf
+    from osiris.api import ImportCustomPlatformsRequest, import_custom_platforms
+
+    monkeypatch.setattr(pf, "CUSTOM_PLATFORMS_FILE", str(tmp_path / "c.json"))
+    req = ImportCustomPlatformsRequest(
+        platforms={
+            "web": {
+                "Good": "https://ex.com/?q={query}",
+                "NoQuery": "https://ex.com/",
+                "BadScheme": "ftp://ex/{query}",
+            },
+            "bad": "not-an-object",
+        }
+    )
+    r = import_custom_platforms(req)
+    assert r["added"] == 1
+    assert r["platforms"]["web"]["Good"] == "https://ex.com/?q={query}"
+    assert "web" in r["platforms"] and "NoQuery" not in r["platforms"]["web"]
+    assert len(r["skipped"]) == 3  # NoQuery, BadScheme, bad(not-an-object)
+
+
 def test_integrations_status_no_secret_leak(monkeypatch):
     from osiris.api import api_integrations
 
