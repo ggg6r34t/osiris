@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# Osiris pre-commit secret sweep.
+# Blocks a commit if staged changes contain secrets, local secret files, or
+# company-sensitive data (Panda values, internal group-ib hosts, private IPs).
+# Override intentionally with:  git commit --no-verify
+set -u
+
+fail=0
+note() { printf '  \033[31m%s\033[0m\n' "$1"; }
+
+# 1) Local/secret files that must never be committed (allow *.example).
+staged_files=$(git diff --cached --name-only --diff-filter=ACM)
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  case "$f" in
+    *.example|*.example.json) continue ;;
+  esac
+  base=$(basename "$f")
+  case "$base" in
+    .env|.env.*|osiris.db|osiris.db-*|custom_platforms.json|geo_risk.json|abuse_contacts.json)
+      if [ "$fail" -eq 0 ]; then echo "✗ pre-commit secret sweep found problems:"; fi
+      note "secret/local file staged: $f"
+      fail=1
+      ;;
+  esac
+done <<EOF
+$staged_files
+EOF
+
+# 2) Scan only ADDED lines of staged content (skip docs, lockfiles, the hooks).
+added=$(git diff --cached --diff-filter=ACM -U0 \
+  -- . ':(exclude)*.md' ':(exclude)*package-lock.json' ':(exclude)scripts/git-hooks/*' \
+  | grep '^+' | grep -v '^+++')
+
+flag() {  # <regex> <label>
+  local hits
+  hits=$(printf '%s\n' "$added" | grep -inE "$1" | grep -viE 'getenv|process\.env|placeholder|your_|<your|example|\.example')
+  if [ -n "$hits" ]; then
+    if [ "$fail" -eq 0 ]; then echo "✗ pre-commit secret sweep found problems:"; fi
+    note "$2:"
+    printf '%s\n' "$hits" | sed 's/^/      /' | head -8
+    fail=1
+  fi
+}
+
+# Hardcoded secret assignments with a literal value (8+ non-space chars).
+flag '(api[_-]?key|secret|passwo?rd|token|bearer)[[:space:]]*[:=][[:space:]]*[^[:space:]]{8,}' "hardcoded secret"
+# Real Panda config values (empty placeholders in .env.example are fine).
+flag 'OSIRIS_PANDA_(URL|LOGIN|KEY)[[:space:]]*=[[:space:]]*[^[:space:]]+' "Panda credential/endpoint value"
+# Internal corporate hosts.
+flag 'group-ib\.(net|com)|onebox' "internal group-ib host"
+# Full private/internal IPv4 (leading boundary avoids version-number false positives).
+flag '(^|[^0-9.])(10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|192\.168\.[0-9]{1,3}\.[0-9]{1,3}|172\.(1[6-9]|2[0-9]|3[01])\.[0-9]{1,3}\.[0-9]{1,3})' "private/internal IP"
+
+if [ "$fail" -ne 0 ]; then
+  echo ""
+  echo "Commit blocked. Remove the above or, if it is a deliberate false positive,"
+  echo "re-run with:  git commit --no-verify"
+  exit 1
+fi
+exit 0

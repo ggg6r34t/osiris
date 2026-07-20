@@ -331,6 +331,17 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
+### Git hooks (secret sweep)
+
+Install once after cloning — a `pre-commit` hook then scans staged changes on every commit and **blocks** any that
+contain secrets, local secret files, internal group-ib hosts, Panda credential values, or private IPs:
+
+```bash
+./scripts/install-hooks.sh
+```
+
+Override a deliberate false positive with `git commit --no-verify`.
+
 ---
 
 ## ⚙️ Configuration & API Keys
