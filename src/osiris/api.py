@@ -333,6 +333,49 @@ def get_settings():
     return _current_settings()
 
 
+@app.get("/api/integrations")
+def api_integrations():
+    """Status of optional integrations + feature availability. Reports only
+    whether things are configured — never any secret values."""
+    import importlib.util
+
+    keys = {
+        "VirusTotal": bool(os.getenv("VIRUSTOTAL_API_KEY")),
+        "Have I Been Pwned": bool(os.getenv("HAVEIBEENPWNED_API_KEY")),
+        "Brave Search": bool(os.getenv("BRAVE_SEARCH_API_KEY")),
+        "AbuseIPDB": bool(os.getenv("ABUSEIPDB_API_KEY")),
+        "SecurityTrails": bool(os.getenv("SECURITYTRAILS_API_KEY")),
+        "ipinfo": bool(os.getenv("IPINFO_TOKEN")),
+        "Google Safe Browsing": bool(os.getenv("GOOGLE_SAFE_BROWSING_API_KEY")),
+        "Panda (Brand Abuse)": all(
+            os.getenv(v) for v in ("OSIRIS_PANDA_URL", "OSIRIS_PANDA_LOGIN", "OSIRIS_PANDA_KEY")
+        ),
+    }
+
+    from osiris import notify
+
+    try:
+        m = storage.metrics()
+        counts = {
+            "cases": m["cases"]["total"],
+            "takedowns": m["takedowns"]["total"],
+            "history": m["history"]["total"],
+        }
+    except Exception:  # noqa: BLE001
+        counts = {"cases": 0, "takedowns": 0, "history": 0}
+
+    return {
+        "keys": keys,
+        "alerting": notify.channels(),
+        "features": {
+            "screenshots": importlib.util.find_spec("playwright") is not None,
+            "ssrf_guard": os.getenv("OSIRIS_ALLOW_PRIVATE_TARGETS", "false").lower() != "true",
+        },
+        "storage": {"db_path": os.path.basename(storage.DB_PATH), **counts},
+        "version": os.getenv("OSIRIS_VERSION", "1.0"),
+    }
+
+
 @app.post("/api/settings")
 def save_settings(req: SettingsRequest):
     if req.user_agent is not None:

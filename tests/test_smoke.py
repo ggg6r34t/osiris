@@ -473,6 +473,22 @@ def test_vip_assess_shape_offline(monkeypatch):
     assert sc["presence"]["mention"]["configured"] is False
 
 
+def test_integrations_status_no_secret_leak(monkeypatch):
+    from osiris.api import api_integrations
+
+    monkeypatch.setenv("VIRUSTOTAL_API_KEY", "supersecretvalue123")
+    monkeypatch.delenv("BRAVE_SEARCH_API_KEY", raising=False)
+    r = api_integrations()
+    assert r["keys"]["VirusTotal"] is True
+    assert r["keys"]["Brave Search"] is False
+    assert set(r["features"]) == {"screenshots", "ssrf_guard"}
+    assert "db_path" in r["storage"]
+    # the secret value must never appear anywhere in the response
+    import json
+
+    assert "supersecretvalue123" not in json.dumps(r)
+
+
 def test_playbook_assess_orchestration(tmp_path, monkeypatch):
     import osiris.storage as st
     import osiris.playbooks as pb

@@ -47,6 +47,14 @@ export type Settings = {
   https_proxy: string;
 };
 
+export type Integrations = {
+  keys: Record<string, boolean>;
+  alerting: { telegram: boolean; webhook: boolean };
+  features: { screenshots: boolean; ssrf_guard: boolean };
+  storage: { db_path: string; cases: number; takedowns: number; history: number };
+  version: string;
+};
+
 export type CustomPlatformMap = Record<string, Record<string, string>>;
 
 // ---- Domain-intelligence tools (Phase 2) ----

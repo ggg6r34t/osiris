@@ -74,7 +74,7 @@ const SECTIONS: Record<TabKey, { title: string; desc: string }> = {
   },
   settings: {
     title: "Settings",
-    desc: "Network and request configuration for the API.",
+    desc: "Network, integrations, alerting, security, and system status.",
   },
 };
 

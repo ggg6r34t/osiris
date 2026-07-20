@@ -14,6 +14,7 @@ import type {
   DeepSearchResponse,
   EmailAnalysis,
   HistoryEntry,
+  Integrations,
   IocExtractResult,
   IocSet,
   Metrics,
@@ -128,6 +129,10 @@ export function saveSettings(
     method: "POST",
     body: JSON.stringify(settings),
   });
+}
+
+export function getIntegrations(): Promise<Integrations> {
+  return jsonFetch<Integrations>("/api/integrations");
 }
 
 export async function getCustomPlatforms(): Promise<CustomPlatformMap> {
