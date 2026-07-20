@@ -990,3 +990,100 @@ def api_abuse_route(req: DomainRequest):
     )
     _record("abuse-route", domain, {"verdict": (report.get("verdict") or {}).get("state")})
     return report
+
+
+# --------------------------------------------------------------------------- #
+# Takedown lifecycle tracking
+# --------------------------------------------------------------------------- #
+class TakedownCreate(BaseModel):
+    domain: str
+    case_id: int | None = None
+    contact: str = ""
+    note: str = ""
+
+
+class TakedownUpdate(BaseModel):
+    status: str | None = None
+    note: str | None = None
+    contact: str | None = None
+
+
+def _with_age(t: dict) -> dict:
+    started = t.get("reported_at") or t.get("created_at")
+    t["age_days"] = round((time.time() - started) / 86400, 1) if started else None
+    return t
+
+
+@app.get("/api/takedowns")
+def get_takedowns(status: str | None = None):
+    return {"takedowns": [_with_age(t) for t in storage.list_takedowns(status)]}
+
+
+@app.get("/api/takedowns/{takedown_id}")
+def get_takedown(takedown_id: int):
+    t = storage.get_takedown(takedown_id)
+    if not t:
+        raise HTTPException(status_code=404, detail="Takedown not found.")
+    return _with_age(t)
+
+
+@app.post("/api/takedowns")
+def create_takedown(req: TakedownCreate):
+    domain = _valid_domain(req.domain)
+    tid = storage.create_takedown(domain, req.case_id, req.contact.strip(), req.note.strip())
+    _record("takedown", domain, {"action": "created"})
+    return storage.get_takedown(tid)
+
+
+@app.patch("/api/takedowns/{takedown_id}")
+def patch_takedown(takedown_id: int, req: TakedownUpdate):
+    if req.status is not None and req.status not in storage.TAKEDOWN_STATES:
+        raise HTTPException(status_code=422, detail=f"Invalid status. Allowed: {', '.join(storage.TAKEDOWN_STATES)}")
+    t = storage.update_takedown(takedown_id, req.status, req.note, req.contact)
+    if not t:
+        raise HTTPException(status_code=404, detail="Takedown not found.")
+    return _with_age(t)
+
+
+@app.delete("/api/takedowns/{takedown_id}")
+def delete_takedown(takedown_id: int):
+    storage.delete_takedown(takedown_id)
+    return {"ok": True}
+
+
+def _check_one(t: dict) -> dict:
+    from osiris.abuse_router import domain_status
+
+    verdict = _run(domain_status, t["domain"])
+    state = (verdict or {}).get("state", "unknown")
+    updated = storage.record_takedown_check(t["id"], state)
+    if updated and updated.get("status_changed"):
+        try:
+            from osiris import notify
+
+            notify.notify(
+                f"[Osiris] Takedown update — {t['domain']} is now {updated['status'].upper()} ({state}).",
+                {"domain": t["domain"], "status": updated["status"], "state": state},
+            )
+        except Exception:  # noqa: BLE001
+            pass
+    return updated or storage.get_takedown(t["id"])
+
+
+@app.post("/api/takedowns/{takedown_id}/check")
+def check_takedown(takedown_id: int):
+    t = storage.get_takedown(takedown_id)
+    if not t:
+        raise HTTPException(status_code=404, detail="Takedown not found.")
+    return _with_age(_bounded(lambda: _check_one(t), 60))
+
+
+@app.post("/api/takedowns/check-all")
+def check_all_takedowns():
+    open_items = storage.open_takedowns()
+    results = _bounded(lambda: [_check_one(t) for t in open_items], 240)
+    changed = [r for r in results if r and r.get("status_changed")]
+    return {
+        "checked": len(results),
+        "changed": [{"domain": r["domain"], "status": r["status"]} for r in changed],
+    }

@@ -106,7 +106,11 @@ Key modules and how they relate:
 - **`screenshot.py`** — optional headless page capture via Playwright (import-guarded; raises a typed
   "not installed" error so the UI degrades gracefully). Install via `requirements-screenshots.txt`.
 - **`storage.py`** — the persistence layer: stdlib `sqlite3` (`osiris.db`, gitignored; thread-safe shared conn,
-  lazy schema). Tables: history, cases + case_items, watchlist, monitor_snapshots. Used by `api.py`, `monitor.py`.
+  lazy schema — new tables are added to `_SCHEMA` as `CREATE IF NOT EXISTS`, applied on next process start, no
+  migration). Tables: history, cases + case_items, watchlist, monitor_snapshots, takedowns + takedown_events.
+  The takedown helpers own the lifecycle state machine (`record_takedown_check` auto-transitions reported→down and
+  down→relisted from a liveness state); `abuse_router.domain_status()` supplies that state. Used by `api.py`,
+  `monitor.py`, and `cli.py` (`--check-takedowns`).
 - **`threat_scoring.py`** — `score_threat(url, target)`: heuristic scoring used by `--score`/`--sort-score` to
   annotate/rank generated links.
 - **`link_opener.py`** — opens result links in a browser (`--open`), with randomization/delay/max-open controls.

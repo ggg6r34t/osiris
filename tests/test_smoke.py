@@ -473,6 +473,53 @@ def test_vip_assess_shape_offline(monkeypatch):
     assert sc["presence"]["mention"]["configured"] is False
 
 
+def test_takedown_lifecycle(tmp_path, monkeypatch):
+    import osiris.storage as st
+
+    monkeypatch.setattr(st, "DB_PATH", str(tmp_path / "t.db"))
+    monkeypatch.setattr(st, "_conn", None)
+
+    tid = st.create_takedown("evil-paypa1.com", contact="abuse@reg.test", note="reported")
+    t = st.get_takedown(tid)
+    assert t["status"] == "new" and t["reported_at"] is None
+    assert len(t["events"]) == 1  # created
+
+    # advance to reported -> stamps reported_at
+    t = st.update_takedown(tid, status="reported")
+    assert t["status"] == "reported" and t["reported_at"] is not None
+
+    # a live check while reported -> no change
+    t = st.record_takedown_check(tid, "live")
+    assert t["status"] == "reported" and t["status_changed"] is False
+
+    # goes down -> auto 'down'
+    t = st.record_takedown_check(tid, "nxdomain")
+    assert t["status"] == "down" and t["status_changed"] is True
+
+    # comes back -> auto 'relisted'
+    t = st.record_takedown_check(tid, "live")
+    assert t["status"] == "relisted" and t["status_changed"] is True
+
+    # open list excludes closed
+    st.update_takedown(tid, status="closed")
+    assert st.open_takedowns() == []
+
+    st.delete_takedown(tid)
+    assert st.get_takedown(tid) is None
+
+
+def test_takedown_no_autochange_from_terminal(tmp_path, monkeypatch):
+    import osiris.storage as st
+
+    monkeypatch.setattr(st, "DB_PATH", str(tmp_path / "t2.db"))
+    monkeypatch.setattr(st, "_conn", None)
+
+    tid = st.create_takedown("x.com")
+    # a 'new' (never-reported) takedown should not auto-flip to down
+    t = st.record_takedown_check(tid, "nxdomain")
+    assert t["status"] == "new" and t["status_changed"] is False
+
+
 def test_abuse_verdict_logic():
     import osiris.abuse_router as ar
 

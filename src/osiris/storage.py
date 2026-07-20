@@ -53,7 +53,39 @@ CREATE TABLE IF NOT EXISTS monitor_snapshots (
   items TEXT,
   ts REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS takedowns (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  domain TEXT NOT NULL,
+  case_id INTEGER,
+  status TEXT NOT NULL DEFAULT 'new',
+  contact TEXT DEFAULT '',
+  note TEXT DEFAULT '',
+  reported_at REAL,
+  last_checked REAL,
+  last_state TEXT,
+  created_at REAL NOT NULL,
+  updated_at REAL NOT NULL,
+  FOREIGN KEY(case_id) REFERENCES cases(id) ON DELETE SET NULL
+);
+CREATE TABLE IF NOT EXISTS takedown_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  takedown_id INTEGER NOT NULL,
+  ts REAL NOT NULL,
+  kind TEXT NOT NULL,
+  detail TEXT DEFAULT '',
+  FOREIGN KEY(takedown_id) REFERENCES takedowns(id) ON DELETE CASCADE
+);
 """
+
+# Lifecycle states and the liveness states that count as "down" vs "up".
+TAKEDOWN_STATES = (
+    "new", "reported", "acknowledged", "monitoring",
+    "down", "relisted", "closed", "false_positive",
+)
+_DOWN_STATES = {"suspended", "nxdomain", "no-dns-records", "no-a-record"}
+_UP_STATES = {"live", "resolves-no-response"}
+# Statuses that are actively awaiting/monitoring a takedown (eligible for checks).
+_OPEN_STATES = {"new", "reported", "acknowledged", "monitoring", "down", "relisted"}
 
 
 def _db() -> sqlite3.Connection:
@@ -225,4 +257,124 @@ def save_snapshot(target: str, tool: str, items: list) -> None:
             "INSERT INTO monitor_snapshots (target, tool, items, ts) VALUES (?,?,?,?)",
             (target, tool, json.dumps(items), time.time()),
         )
+        db.commit()
+
+
+# --------------------------------------------------------------------------- #
+# Takedown lifecycle tracking
+# --------------------------------------------------------------------------- #
+def _add_event(db: sqlite3.Connection, takedown_id: int, kind: str, detail: str = "") -> None:
+    db.execute(
+        "INSERT INTO takedown_events (takedown_id, ts, kind, detail) VALUES (?,?,?,?)",
+        (takedown_id, time.time(), kind, detail),
+    )
+
+
+def create_takedown(
+    domain: str, case_id: Optional[int] = None, contact: str = "", note: str = ""
+) -> int:
+    now = time.time()
+    with _lock:
+        db = _db()
+        cur = db.execute(
+            """INSERT INTO takedowns (domain, case_id, status, contact, note, created_at, updated_at)
+               VALUES (?,?,?,?,?,?,?)""",
+            (domain, case_id, "new", contact, note, now, now),
+        )
+        tid = cur.lastrowid
+        _add_event(db, tid, "created", f"Tracking takedown for {domain}")
+        db.commit()
+        return tid
+
+
+def list_takedowns(status: Optional[str] = None) -> list[dict]:
+    with _lock:
+        db = _db()
+        if status:
+            rows = db.execute(
+                "SELECT * FROM takedowns WHERE status=? ORDER BY updated_at DESC", (status,)
+            ).fetchall()
+        else:
+            rows = db.execute("SELECT * FROM takedowns ORDER BY updated_at DESC").fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_takedown(takedown_id: int) -> Optional[dict]:
+    with _lock:
+        db = _db()
+        row = db.execute("SELECT * FROM takedowns WHERE id=?", (takedown_id,)).fetchone()
+        if not row:
+            return None
+        events = db.execute(
+            "SELECT * FROM takedown_events WHERE takedown_id=? ORDER BY id DESC", (takedown_id,)
+        ).fetchall()
+    return {**dict(row), "events": [dict(e) for e in events]}
+
+
+def update_takedown(
+    takedown_id: int,
+    status: Optional[str] = None,
+    note: Optional[str] = None,
+    contact: Optional[str] = None,
+) -> Optional[dict]:
+    now = time.time()
+    with _lock:
+        db = _db()
+        row = db.execute("SELECT * FROM takedowns WHERE id=?", (takedown_id,)).fetchone()
+        if not row:
+            return None
+        if status is not None and status != row["status"]:
+            db.execute("UPDATE takedowns SET status=? WHERE id=?", (status, takedown_id))
+            if status == "reported" and not row["reported_at"]:
+                db.execute(
+                    "UPDATE takedowns SET reported_at=? WHERE id=?", (now, takedown_id)
+                )
+            _add_event(db, takedown_id, "status", status)
+        if contact is not None:
+            db.execute("UPDATE takedowns SET contact=? WHERE id=?", (contact, takedown_id))
+        if note:
+            db.execute("UPDATE takedowns SET note=? WHERE id=?", (note, takedown_id))
+            _add_event(db, takedown_id, "note", note)
+        db.execute("UPDATE takedowns SET updated_at=? WHERE id=?", (now, takedown_id))
+        db.commit()
+    return get_takedown(takedown_id)
+
+
+def record_takedown_check(takedown_id: int, state: str) -> Optional[dict]:
+    """Record a liveness check and auto-transition: mark 'down' when a reported
+    domain goes dark, or 'relisted' when a down domain comes back up."""
+    now = time.time()
+    with _lock:
+        db = _db()
+        row = db.execute("SELECT * FROM takedowns WHERE id=?", (takedown_id,)).fetchone()
+        if not row:
+            return None
+        cur_status = row["status"]
+        new_status = cur_status
+        if cur_status in {"reported", "acknowledged", "monitoring"} and state in _DOWN_STATES:
+            new_status = "down"
+            _add_event(db, takedown_id, "auto", f"Detected DOWN ({state})")
+        elif cur_status == "down" and state in _UP_STATES:
+            new_status = "relisted"
+            _add_event(db, takedown_id, "auto", f"RELISTED — back up ({state})")
+        db.execute(
+            "UPDATE takedowns SET last_checked=?, last_state=?, status=?, updated_at=? WHERE id=?",
+            (now, state, new_status, now, takedown_id),
+        )
+        db.commit()
+    result = get_takedown(takedown_id)
+    if result:
+        result["status_changed"] = new_status != cur_status
+    return result
+
+
+def open_takedowns() -> list[dict]:
+    """Takedowns still worth re-checking (not closed / false-positive)."""
+    return [t for t in list_takedowns() if t["status"] in _OPEN_STATES]
+
+
+def delete_takedown(takedown_id: int) -> None:
+    with _lock:
+        db = _db()
+        db.execute("DELETE FROM takedowns WHERE id=?", (takedown_id,))
         db.commit()

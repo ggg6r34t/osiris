@@ -1,10 +1,40 @@
 "use client";
 
 import { useState } from "react";
-import { abuseRoute } from "@/lib/api";
+import { abuseRoute, createTakedown } from "@/lib/api";
 import type { AbuseEscalation, AbuseRouteResult } from "@/lib/types";
 import AddToCase from "../AddToCase";
 import { Card, KV, RunBar, ToolError, ToolLoading, useTool } from "./ui";
+
+function TrackTakedownButton({ data }: { data: AbuseRouteResult }) {
+  const [state, setState] = useState<"idle" | "saving" | "done">("idle");
+  const bestContact =
+    data.registrar.abuse_email ||
+    data.hosting.abuse_email ||
+    data.email.abuse_email ||
+    data.registrar.abuse_form ||
+    data.hosting.abuse_form ||
+    "";
+  return (
+    <button
+      type="button"
+      disabled={state !== "idle"}
+      onClick={async () => {
+        setState("saving");
+        try {
+          await createTakedown({ domain: data.domain, contact: bestContact });
+          setState("done");
+        } catch {
+          setState("idle");
+        }
+      }}
+      className="rounded-md border border-accent/40 bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent transition-colors hover:bg-accent/20 disabled:opacity-60"
+      title="Start tracking this domain's takedown in the Takedowns board"
+    >
+      {state === "done" ? "Tracking ✓" : state === "saving" ? "Adding…" : "Track takedown"}
+    </button>
+  );
+}
 
 const VERDICT_STYLE: Record<string, string> = {
   live: "border-danger/40 bg-danger/10 text-danger",
@@ -114,7 +144,10 @@ export default function AbuseRouterView() {
               </span>
               <span className="font-mono text-sm text-fg">{data.domain}</span>
             </div>
-            <AddToCase kind="abuse-route" data={{ domain: data.domain, verdict: data.verdict.state }} />
+            <div className="flex items-center gap-2">
+              <TrackTakedownButton data={data} />
+              <AddToCase kind="abuse-route" data={{ domain: data.domain, verdict: data.verdict.state }} />
+            </div>
           </div>
           {data.verdict.notes.length > 0 && (
             <ul className="-mt-2 flex flex-col gap-1 px-1 text-xs text-fg-muted">

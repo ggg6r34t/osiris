@@ -23,6 +23,7 @@ import type {
   SearchResponse,
   SearchResult,
   Settings,
+  Takedown,
   TakedownEmail,
   VipInput,
   VipScorecard,
@@ -378,6 +379,54 @@ export function assessVip(input: VipInput): Promise<VipScorecard> {
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+// --- Takedown lifecycle tracking ---
+export async function getTakedowns(status?: string): Promise<Takedown[]> {
+  const q = status ? `?status=${encodeURIComponent(status)}` : "";
+  const d = await jsonFetch<{ takedowns: Takedown[] }>(`/api/takedowns${q}`);
+  return d.takedowns;
+}
+
+export function getTakedown(id: number): Promise<Takedown> {
+  return jsonFetch<Takedown>(`/api/takedowns/${id}`);
+}
+
+export function createTakedown(input: {
+  domain: string;
+  case_id?: number | null;
+  contact?: string;
+  note?: string;
+}): Promise<Takedown> {
+  return jsonFetch<Takedown>("/api/takedowns", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateTakedown(
+  id: number,
+  patch: { status?: string; note?: string; contact?: string },
+): Promise<Takedown> {
+  return jsonFetch<Takedown>(`/api/takedowns/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export function checkTakedown(id: number): Promise<Takedown> {
+  return jsonFetch<Takedown>(`/api/takedowns/${id}/check`, { method: "POST" });
+}
+
+export function checkAllTakedowns(): Promise<{
+  checked: number;
+  changed: { domain: string; status: string }[];
+}> {
+  return jsonFetch("/api/takedowns/check-all", { method: "POST" });
+}
+
+export function deleteTakedown(id: number): Promise<{ ok: boolean }> {
+  return jsonFetch(`/api/takedowns/${id}`, { method: "DELETE" });
 }
 
 export async function getAlertChannels(): Promise<AlertChannels> {

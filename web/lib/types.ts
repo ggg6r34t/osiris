@@ -312,6 +312,41 @@ export type VipScorecard = {
   };
 };
 
+export type TakedownStatus =
+  | "new"
+  | "reported"
+  | "acknowledged"
+  | "monitoring"
+  | "down"
+  | "relisted"
+  | "closed"
+  | "false_positive";
+
+export type TakedownEvent = {
+  id: number;
+  takedown_id: number;
+  ts: number;
+  kind: string;
+  detail: string;
+};
+
+export type Takedown = {
+  id: number;
+  domain: string;
+  case_id: number | null;
+  status: TakedownStatus;
+  contact: string;
+  note: string;
+  reported_at: number | null;
+  last_checked: number | null;
+  last_state: string | null;
+  created_at: number;
+  updated_at: number;
+  age_days: number | null;
+  events?: TakedownEvent[];
+  status_changed?: boolean;
+};
+
 export type AlertChannels = { telegram: boolean; webhook: boolean };
 
 export type AlertTestResult = {

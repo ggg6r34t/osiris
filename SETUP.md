@@ -91,8 +91,11 @@ the **VIP scorecard** (mention-volume + breach signals just show as "not configu
 - **Stop running servers:** `lsof -ti:3000,8000 | xargs kill`
 - **Monitoring:** add watch targets on the Monitor tab and click **Run monitor**, or schedule the CLI for cron:
   ```bash
-  osiris --monitor    # runs all watchlist targets, fires alerts on new lookalikes
+  osiris --monitor            # runs all watchlist targets, fires alerts on new lookalikes
+  osiris --check-takedowns    # re-checks open takedowns, flags down/relisted, fires alerts on change
   ```
+- **Takedowns:** run the **Abuse Router** on a domain → **Track takedown** → manage it in **Cases → Takedowns**
+  (advance status, re-check liveness, view the timeline). Alerts on down/relisted use the same channels as monitoring.
 
 ---
 

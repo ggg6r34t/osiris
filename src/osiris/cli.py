@@ -204,6 +204,8 @@ def parse_args():
     parser.add_argument("-n", "--no-banner", action="store_true", help="Suppress ASCII banner output")
     parser.add_argument("--monitor", action="store_true",
                         help="Re-run monitoring for all watchlist targets and report new lookalikes (cron-friendly)")
+    parser.add_argument("--check-takedowns", action="store_true",
+                        help="Re-check all open tracked takedowns; auto-flag down/relisted and alert (cron-friendly)")
 
     args = parser.parse_args()
 
@@ -267,6 +269,31 @@ def main():
                     console.print(f"  [bold red]{tool}: {len(new)} NEW[/bold red] → {', '.join(new[:10])}")
                 else:
                     console.print(f"  [green]{tool}: no new[/green]")
+        sys.exit(0)
+
+    if args.check_takedowns:
+        from osiris import notify, storage
+        from osiris.abuse_router import domain_status
+
+        items = storage.open_takedowns()
+        if not items:
+            console.print("[yellow]No open takedowns to check. Track one from the Abuse Router or Takedowns tab.[/yellow]")
+            sys.exit(0)
+        for t in items:
+            verdict = domain_status(t["domain"])
+            state = verdict.get("state", "unknown")
+            updated = storage.record_takedown_check(t["id"], state)
+            if updated and updated.get("status_changed"):
+                console.print(f"  [bold red]{t['domain']}: {updated['status'].upper()}[/bold red] ({state})")
+                try:
+                    notify.notify(
+                        f"[Osiris] Takedown update — {t['domain']} is now {updated['status'].upper()} ({state}).",
+                        {"domain": t["domain"], "status": updated["status"], "state": state},
+                    )
+                except Exception:  # noqa: BLE001
+                    pass
+            else:
+                console.print(f"  [green]{t['domain']}: {t['status']} — no change[/green] ({state})")
         sys.exit(0)
 
     json_mode = bool(config.get("json_output"))

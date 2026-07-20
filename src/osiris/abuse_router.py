@@ -397,12 +397,27 @@ def reporting_channels(domain: str) -> list:
     ]
 
 
-def route_abuse(domain: str) -> dict:
-    domain = domain.strip().lower().rstrip(".")
+def normalize_target(domain: str) -> str:
+    domain = (domain or "").strip().lower().rstrip(".")
     if domain.startswith("http"):
         domain = urllib.parse.urlparse(domain).netloc or domain
     if "/" in domain:
         domain = domain.split("/", 1)[0]
+    return domain
+
+
+def domain_status(domain: str) -> dict:
+    """Lightweight live-status verdict (DNS + HTTP + RDAP hold codes only) — used
+    to re-check tracked takedowns without the full contact resolution."""
+    domain = normalize_target(domain)
+    dns_data = dns_records(domain)
+    live = http_liveness(domain)
+    rdap = domain_rdap(domain)
+    return liveness_verdict(dns_data, live, rdap.get("status", []))
+
+
+def route_abuse(domain: str) -> dict:
+    domain = normalize_target(domain)
 
     dns_data = dns_records(domain)
     live = http_liveness(domain)

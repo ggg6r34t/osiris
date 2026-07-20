@@ -239,7 +239,10 @@ organized into sections — **Search**, **Domain Tools**, **VIP**, **Cases**, **
   combined). These make outbound network calls and can be slow; results are cached in-process for ~1 hour so
   re-querying is instant.
 - **Cases** — a local investigation workspace (SQLite `osiris.db`, gitignored): **Cases** (group findings,
-  per-item status/notes, "Add to case" from Enrich), **Monitor** (watchlist that re-runs Domain Match + DNSTwist
+  per-item status/notes, "Add to case" from Enrich), **Takedowns** (track a domain's takedown through its
+  lifecycle — new → reported → down → **relisted** — with an event timeline, aging, and auto re-checks that flag
+  when a reported domain goes dark or comes back; "Track takedown" from the Abuse Router, `osiris --check-takedowns`
+  for cron, Telegram/webhook alerts on change), **Monitor** (watchlist that re-runs Domain Match + DNSTwist
   and highlights newly-registered lookalikes vs. the last run — also `osiris --monitor` for cron), and **History**
   (recent runs). Enrich also has **bulk** mode, per-tool **CSV/JSON export**, a **↻ refresh** (cache bypass), a
   **takedown/abuse-email** generator, and **screenshots** of suspect pages.

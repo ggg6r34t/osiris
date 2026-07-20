@@ -19,6 +19,7 @@ import {
 } from "@/lib/caseExport";
 import type { CaseDetail, CaseSummary, HistoryEntry } from "@/lib/types";
 import MonitorView from "./MonitorView";
+import TakedownsView from "./TakedownsView";
 import { TrashIcon } from "./icons";
 
 const STATUS_OPTS = ["open", "suspicious", "escalate", "cleared"];
@@ -261,11 +262,13 @@ function CasesView() {
 }
 
 export default function Workspace() {
-  const [view, setView] = useState<"cases" | "monitor" | "history">("cases");
+  const [view, setView] = useState<"cases" | "takedowns" | "monitor" | "history">(
+    "cases",
+  );
   return (
     <div className="flex flex-col gap-4">
       <div className="flex rounded-lg border border-line bg-canvas p-0.5 text-sm">
-        {(["cases", "monitor", "history"] as const).map((v) => (
+        {(["cases", "takedowns", "monitor", "history"] as const).map((v) => (
           <button
             key={v}
             type="button"
@@ -279,6 +282,7 @@ export default function Workspace() {
         ))}
       </div>
       {view === "cases" && <CasesView />}
+      {view === "takedowns" && <TakedownsView />}
       {view === "monitor" && <MonitorView />}
       {view === "history" && <HistoryView />}
     </div>
