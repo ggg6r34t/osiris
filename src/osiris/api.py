@@ -346,6 +346,7 @@ def api_integrations():
         "AbuseIPDB": bool(os.getenv("ABUSEIPDB_API_KEY")),
         "SecurityTrails": bool(os.getenv("SECURITYTRAILS_API_KEY")),
         "ipinfo": bool(os.getenv("IPINFO_TOKEN")),
+        "urlscan.io": bool(os.getenv("URLSCAN_API_KEY")),
         "Google Safe Browsing": bool(os.getenv("GOOGLE_SAFE_BROWSING_API_KEY")),
         "Panda (Brand Abuse)": all(
             os.getenv(v) for v in ("OSIRIS_PANDA_URL", "OSIRIS_PANDA_LOGIN", "OSIRIS_PANDA_KEY")
@@ -1106,6 +1107,26 @@ def api_vips_delete(vip_id: int):
 # --------------------------------------------------------------------------- #
 # Abuse Router — who to report a domain to + is it still live
 # --------------------------------------------------------------------------- #
+class UrlScanRequest(BaseModel):
+    url: str
+    visibility: str = "unlisted"
+
+
+@app.post("/api/urlscan")
+def api_urlscan(req: UrlScanRequest):
+    from osiris.urlscan import UrlscanError, scan
+
+    url = (req.url or "").strip()
+    if not url:
+        raise HTTPException(status_code=422, detail="A URL is required.")
+    try:
+        result = _bounded(lambda: scan(url, req.visibility), 75)
+    except UrlscanError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    _record("urlscan", url, {"malicious": (result.get("verdict") or {}).get("malicious")})
+    return result
+
+
 @app.post("/api/abuse-route")
 def api_abuse_route(req: DomainRequest):
     from osiris.abuse_router import route_abuse

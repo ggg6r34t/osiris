@@ -636,6 +636,23 @@ def test_http_get_blocks_private(monkeypatch):
         en.http_get("http://127.0.0.1:8000/")
 
 
+def test_urlscan_graceful_and_brand_parsing(monkeypatch):
+    import osiris.urlscan as us
+
+    monkeypatch.delenv("URLSCAN_API_KEY", raising=False)
+    assert us.configured() is False
+
+    def boom(*_a, **_k):
+        raise AssertionError("network call attempted without an API key")
+
+    monkeypatch.setattr(us.requests, "post", boom)
+    with pytest.raises(us.UrlscanError):
+        us.scan("http://evil.example")  # no key → raises before any request
+
+    assert us._brand_names([{"name": "PayPal"}, "Chase", {"x": 1}]) == ["PayPal", "Chase"]
+    assert us._brand_names(None) == []
+
+
 def test_ioc_extract_and_refang():
     import osiris.ioc as ioc
 

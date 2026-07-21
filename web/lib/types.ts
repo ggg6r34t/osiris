@@ -287,6 +287,41 @@ export type ReputationResult = {
   verdict: "listed" | "clean" | "unknown";
 };
 
+export type UrlScanResult = {
+  configured: boolean;
+  pending: boolean;
+  uuid: string | null;
+  result_url: string;
+  visibility?: string;
+  screenshot?: string | null;
+  verdict?: {
+    malicious: boolean;
+    score: number;
+    brands: string[];
+    categories: string[];
+    tags: string[];
+  };
+  page?: {
+    url?: string;
+    domain?: string;
+    ip?: string;
+    country?: string;
+    server?: string;
+    asn?: string;
+    asnname?: string;
+    title?: string;
+    tls_issuer?: string;
+    status?: string;
+  };
+  infrastructure?: {
+    ips: string[];
+    domains: string[];
+    asns: string[];
+    servers: string[];
+    countries: string[];
+  };
+};
+
 export type AbuseContactMethod = "email" | "form" | "none";
 
 export type AbuseEscalation = {

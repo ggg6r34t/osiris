@@ -229,7 +229,10 @@ organized into sections — **Search**, **Domain Tools**, **VIP**, **Cases**, **
 - **Domain Tools** — the domain-intelligence modes: **Enrich** (WHOIS/DNS/hosting/SSL/favicon/threat-intel with a
   computed risk score), **URL Analyze** (fetches a suspected phishing page — HTML only, no JS — and flags
   credential-harvesting forms, cross-domain form posts, brand impersonation, redirect chains and page IOCs with a
-  risk level), **Reputation** (checks a domain/IP against phishing & malware feeds — URLhaus, Spamhaus, SURBL, and
+  risk level), **URLScan** (submits a URL to **urlscan.io** for a sandboxed browser render — from urlscan's infra,
+  not yours — returning a screenshot, malicious verdict + score, targeted brands, and the contacted-infrastructure
+  map for campaign pivoting; defaults to an **unlisted** scan so it isn't exposed in urlscan's public search;
+  needs `URLSCAN_API_KEY`), **Reputation** (checks a domain/IP against phishing & malware feeds — URLhaus, Spamhaus, SURBL, and
   Google Safe Browsing if a key is set — and rolls the hits into a listed/clean verdict), **Abuse Router** (for
   any domain: resolves *who to report abuse to* — registrar, hosting/CDN,
   email provider — with abuse-email **or web-form** links and an ordered escalation path, plus a live-status verdict
@@ -367,6 +370,7 @@ Osiris supports environment-based configuration for production usage:
   reserved addresses and non-http(s) schemes. Set to `true` only to deliberately scan internal hosts on a trusted network.
 - `ABUSEIPDB_API_KEY` — Enables AbuseIPDB lookups during enrichment.
 - `SECURITYTRAILS_API_KEY` — Enables passive DNS history lookups.
+- `URLSCAN_API_KEY` — Enables the URLScan live sandbox scanner and higher urlscan search limits.
 - `IPINFO_TOKEN` — Improves abuse contact resolution in hosting info.
 
 Example (PowerShell):

@@ -355,9 +355,15 @@ def check_virustotal(domain: str) -> dict:
 
 
 def check_urlscan(domain: str) -> dict:
-    """urlscan.io recent scans for a domain (free search API, no key)."""
+    """urlscan.io recent scans for a domain (free search API; uses URLSCAN_API_KEY
+    for higher rate limits when set)."""
     try:
-        r = http_get(f"https://urlscan.io/api/v1/search/?q=domain:{domain}&size=10")
+        key = os.getenv("URLSCAN_API_KEY")
+        headers = {"API-Key": key} if key else {}
+        r = http_get(
+            f"https://urlscan.io/api/v1/search/?q=domain:{domain}&size=10",
+            headers=headers,
+        )
         if not r.ok:
             return {}
         results = r.json().get("results", []) or []

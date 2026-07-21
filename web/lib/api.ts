@@ -34,6 +34,7 @@ import type {
   Takedown,
   TakedownEmail,
   UrlAnalysis,
+  UrlScanResult,
   SavedVip,
   VipInput,
   VipScorecard,
@@ -442,6 +443,16 @@ export function checkReputation(domain: string, refresh = false): Promise<Reputa
   return jsonFetch<ReputationResult>("/api/reputation", {
     method: "POST",
     body: JSON.stringify({ domain, refresh }),
+  });
+}
+
+export function urlscanScan(
+  url: string,
+  visibility = "unlisted",
+): Promise<UrlScanResult> {
+  return jsonFetch<UrlScanResult>("/api/urlscan", {
+    method: "POST",
+    body: JSON.stringify({ url, visibility }),
   });
 }
 
