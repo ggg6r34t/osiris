@@ -692,6 +692,39 @@ def test_http_get_blocks_private(monkeypatch):
         en.http_get("http://127.0.0.1:8000/")
 
 
+def test_favicon_murmur3_matches_mmh3():
+    import osiris.favicon as fav
+
+    # canonical mmh3.hash test vectors (seed 0, x86_32, signed)
+    assert fav._murmur3_x86_32(b"") == 0
+    assert fav._murmur3_x86_32(b"", 1) == 1364076727
+    assert fav._murmur3_x86_32(b"foo") == -156908512
+    assert fav._murmur3_x86_32(b"hello") == 613153351
+    assert fav._murmur3_x86_32(b"The quick brown fox jumps over the lazy dog") == 776992547
+
+
+def test_favicon_hash_shodan_style():
+    import base64
+    import osiris.favicon as fav
+
+    content = b"\x00\x00\x01\x00fake-ico-bytes"
+    # Shodan hash = mmh3 of base64.encodebytes(content)
+    assert fav.favicon_hash(content) == fav._murmur3_x86_32(base64.encodebytes(content))
+
+
+def test_favicon_shodan_graceful(monkeypatch):
+    import osiris.favicon as fav
+
+    monkeypatch.delenv("SHODAN_API_KEY", raising=False)
+
+    def boom(*a, **k):
+        raise AssertionError("Shodan called without a key")
+
+    monkeypatch.setattr(fav.requests, "get", boom)
+    r = fav._shodan_matches(12345)
+    assert r == {"configured": False, "total": 0, "matches": []}
+
+
 def test_subdomains_parse(monkeypatch):
     import osiris.subdomains as sd
 

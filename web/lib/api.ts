@@ -14,6 +14,7 @@ import type {
   DeepSearchResponse,
   DnsPostureResult,
   EmailAnalysis,
+  FaviconResult,
   HistoryEntry,
   Integrations,
   IocExtractResult,
@@ -461,6 +462,13 @@ export function urlscanScan(
 
 export function enumerateSubdomains(domain: string, refresh = false): Promise<SubdomainsResult> {
   return jsonFetch<SubdomainsResult>("/api/subdomains", {
+    method: "POST",
+    body: JSON.stringify({ domain, refresh }),
+  });
+}
+
+export function faviconPivot(domain: string, refresh = false): Promise<FaviconResult> {
+  return jsonFetch<FaviconResult>("/api/favicon", {
     method: "POST",
     body: JSON.stringify({ domain, refresh }),
   });

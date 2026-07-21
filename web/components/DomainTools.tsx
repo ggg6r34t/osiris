@@ -9,6 +9,7 @@ import ReputationView from "./domain/ReputationView";
 import WaybackView from "./domain/WaybackView";
 import SubdomainsView from "./domain/SubdomainsView";
 import PostureView from "./domain/PostureView";
+import FaviconView from "./domain/FaviconView";
 import DomainMatchView from "./domain/DomainMatchView";
 import DnstwistView from "./domain/DnstwistView";
 import CloneDetectView from "./domain/CloneDetectView";
@@ -27,6 +28,7 @@ type ToolKey =
   | "wayback"
   | "abuse-router"
   | "ip-pivot"
+  | "favicon"
   | "domain-match"
   | "dnstwist"
   | "clone-detect"
@@ -45,6 +47,7 @@ const TOOLS: { key: ToolKey; label: string; blurb: string }[] = [
   { key: "wayback", label: "Wayback", blurb: "archive.org history · snapshot timeline" },
   { key: "abuse-router", label: "Abuse Router", blurb: "Who to report to · is it still live?" },
   { key: "ip-pivot", label: "IP Pivot", blurb: "Reverse-IP · co-hosted domains" },
+  { key: "favicon", label: "Favicon Pivot", blurb: "Favicon hash · other hosts reusing it (Shodan)" },
   { key: "domain-match", label: "Domain Match", blurb: "Registered lookalikes" },
   { key: "dnstwist", label: "DNSTwist", blurb: "Permutation scan" },
   { key: "clone-detect", label: "Clone Detect", blurb: "Byte-identical clones" },
@@ -66,6 +69,7 @@ export default function DomainTools() {
             key={t.key}
             type="button"
             onClick={() => setTool(t.key)}
+            title={t.blurb}
             className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-all duration-150 ${
               t.key === tool
                 ? "border-accent/40 bg-gradient-to-b from-accent/20 to-accent/5 text-accent ring-1 ring-inset ring-accent/20"
@@ -88,6 +92,7 @@ export default function DomainTools() {
       {tool === "wayback" && <WaybackView />}
       {tool === "abuse-router" && <AbuseRouterView />}
       {tool === "ip-pivot" && <IpPivotView />}
+      {tool === "favicon" && <FaviconView />}
       {tool === "domain-match" && <DomainMatchView />}
       {tool === "dnstwist" && <DnstwistView />}
       {tool === "clone-detect" && <CloneDetectView />}

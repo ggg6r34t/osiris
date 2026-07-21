@@ -347,6 +347,7 @@ def api_integrations():
         "SecurityTrails": bool(os.getenv("SECURITYTRAILS_API_KEY")),
         "ipinfo": bool(os.getenv("IPINFO_TOKEN")),
         "urlscan.io": bool(os.getenv("URLSCAN_API_KEY")),
+        "Shodan": bool(os.getenv("SHODAN_API_KEY")),
         "Google Safe Browsing": bool(os.getenv("GOOGLE_SAFE_BROWSING_API_KEY")),
         "Panda (Brand Abuse)": all(
             os.getenv(v) for v in ("OSIRIS_PANDA_URL", "OSIRIS_PANDA_LOGIN", "OSIRIS_PANDA_KEY")
@@ -1138,6 +1139,20 @@ def api_subdomains(req: DomainRequest):
         refresh=req.refresh,
     )
     _record("subdomains", domain, {"total": result.get("total"), "resolved": result.get("resolved")})
+    return result
+
+
+@app.post("/api/favicon")
+def api_favicon(req: DomainRequest):
+    from osiris.favicon import pivot
+
+    domain = _valid_domain(req.domain)
+    result = _cached(
+        f"favicon:{domain}",
+        lambda: _bounded(lambda: _run(pivot, domain), 45),
+        refresh=req.refresh,
+    )
+    _record("favicon", domain, {"hash": result.get("hash")})
     return result
 
 

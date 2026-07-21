@@ -370,6 +370,22 @@ export type DnsPostureResult = {
   checks: PostureCheck[];
 };
 
+export type FaviconResult = {
+  domain: string;
+  found: boolean;
+  favicon_url?: string;
+  hash?: number;
+  preview?: string | null;
+  shodan_dork?: string;
+  shodan?: {
+    configured: boolean;
+    total: number;
+    matches: { ip: string; port: number; org: string | null; hostnames: string[]; country: string | null }[];
+    error?: string;
+  };
+  error?: string;
+};
+
 export type AbuseContactMethod = "email" | "form" | "none";
 
 export type AbuseEscalation = {

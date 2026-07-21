@@ -242,7 +242,9 @@ organized into sections — **Search**, **Domain Tools**, **VIP**, **Cases**, **
   from DNS/MX/RDAP status codes to tell whether a fraudulent domain/email is still up or already taken down; includes
   blocklist/browser reporting channels and a pre-filled report email; keyless RDAP+DNS, abuse map overridable via
   `abuse_contacts.json`), **Domain Match** (certificate-transparency lookalikes), **DNSTwist** (permutation scan),
-  **IP Pivot** (reverse-IP: other domains co-hosted on the same IP + ASN/host facts), **Clone Detect**
+  **IP Pivot** (reverse-IP: other domains co-hosted on the same IP + ASN/host facts), **Favicon Pivot** (computes the
+  Shodan-style favicon hash and finds other hosts reusing it — a phishing-kit/infra pivot; hash + Shodan link are
+  keyless, host listing uses `SHODAN_API_KEY`), **Clone Detect**
   (byte-identical typosquat clones), **Brand Abuse (regex)** (regex search over the internal Panda
   dataset, with a built-in **Generate regex from a brand** helper that turns a brand/domain into a
   homoglyph/typosquat pattern), **Text Clone** and **Phishing Dorks** (dork-link builders), and **Deep Search** (all of the above
@@ -374,6 +376,7 @@ Osiris supports environment-based configuration for production usage:
 - `ABUSEIPDB_API_KEY` — Enables AbuseIPDB lookups during enrichment.
 - `SECURITYTRAILS_API_KEY` — Enables passive DNS history lookups.
 - `URLSCAN_API_KEY` — Enables the URLScan live sandbox scanner and higher urlscan search limits.
+- `SHODAN_API_KEY` — Lets the Favicon Pivot list hosts sharing a favicon (the hash + Shodan link work without it).
 - `IPINFO_TOKEN` — Improves abuse contact resolution in hosting info.
 
 Example (PowerShell):
