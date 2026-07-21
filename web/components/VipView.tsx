@@ -1,10 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { assessVip } from "@/lib/api";
-import type { RiskLevel, VipPivot, VipScorecard, VipSearchPivot } from "@/lib/types";
+import { useCallback, useEffect, useState } from "react";
+import { assessVip, deleteVip, getVips, saveVip } from "@/lib/api";
+import type {
+  RiskLevel,
+  SavedVip,
+  VipInput,
+  VipPivot,
+  VipScorecard,
+  VipSearchPivot,
+} from "@/lib/types";
 import AddToCase from "./AddToCase";
 import { ToolError, ToolLoading } from "./domain/ui";
+import { TrashIcon } from "./icons";
 import { exportVipJson, openVipReport } from "@/lib/vipReport";
 
 const LEVEL_STYLE: Record<RiskLevel, string> = {
@@ -127,6 +135,41 @@ function splitList(s: string): string[] {
     .filter(Boolean);
 }
 
+type FormState = typeof EMPTY;
+
+function formToInput(form: FormState): VipInput {
+  return {
+    name: form.name.trim(),
+    aliases: splitList(form.aliases),
+    emails: splitList(form.emails),
+    usernames: splitList(form.usernames),
+    company: form.company.trim(),
+    country: form.country.trim(),
+    known_impersonations: Number(form.impersonations) || 0,
+  };
+}
+
+function profileToForm(p: VipInput): FormState {
+  return {
+    name: p.name || "",
+    aliases: (p.aliases || []).join(", "),
+    emails: (p.emails || []).join(", "),
+    usernames: (p.usernames || []).join(", "),
+    company: p.company || "",
+    country: p.country || "",
+    impersonations: String(p.known_impersonations ?? 0),
+  };
+}
+
+function relTime(ts: number | null): string {
+  if (!ts) return "never";
+  const days = (Date.now() / 1000 - ts) / 86400;
+  if (days < 1) return "today";
+  if (days < 2) return "1d ago";
+  if (days < 30) return `${Math.round(days)}d ago`;
+  return `${Math.round(days / 30)}mo ago`;
+}
+
 function Field({
   label,
   value,
@@ -157,14 +200,66 @@ function Field({
   );
 }
 
+const LEVEL_DOT: Record<string, string> = {
+  high: "text-danger",
+  medium: "text-amber-300",
+  low: "text-live",
+};
+
 export default function VipView() {
-  const [form, setForm] = useState(EMPTY);
+  const [form, setForm] = useState<FormState>(EMPTY);
   const [data, setData] = useState<VipScorecard | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [roster, setRoster] = useState<SavedVip[]>([]);
+  const [activeId, setActiveId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const set = (k: keyof typeof EMPTY) => (v: string) =>
+  const loadRoster = useCallback(() => {
+    getVips().then(setRoster).catch(() => setRoster([]));
+  }, []);
+  useEffect(() => loadRoster(), [loadRoster]);
+
+  const set = (k: keyof FormState) => (v: string) =>
     setForm((f) => ({ ...f, [k]: v }));
+
+  function loadVip(v: SavedVip) {
+    setForm(profileToForm(v.profile));
+    setActiveId(v.id);
+    setData(null);
+    setError(null);
+  }
+
+  function newVip() {
+    setForm(EMPTY);
+    setActiveId(null);
+    setData(null);
+    setError(null);
+  }
+
+  async function save() {
+    if (!form.name.trim()) {
+      setError("A VIP name is required to save.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const saved = await saveVip(formToInput(form), activeId ?? undefined);
+      setActiveId(saved.id);
+      loadRoster();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save VIP.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove(id: number) {
+    await deleteVip(id);
+    if (activeId === id) newVip();
+    loadRoster();
+  }
 
   async function run() {
     if (!form.name.trim()) {
@@ -174,16 +269,9 @@ export default function VipView() {
     setLoading(true);
     setError(null);
     try {
-      const sc = await assessVip({
-        name: form.name.trim(),
-        aliases: splitList(form.aliases),
-        emails: splitList(form.emails),
-        usernames: splitList(form.usernames),
-        company: form.company.trim(),
-        country: form.country.trim(),
-        known_impersonations: Number(form.impersonations) || 0,
-      });
+      const sc = await assessVip(formToInput(form), activeId ?? undefined);
       setData(sc);
+      if (activeId != null) loadRoster(); // refresh stored last-result
     } catch (e) {
       setError(e instanceof Error ? e.message : "Assessment failed.");
     } finally {
@@ -192,7 +280,70 @@ export default function VipView() {
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[300px_1fr]">
+      {/* Saved VIP roster */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <span className="font-mono text-[11px] uppercase tracking-wider text-fg-muted">
+            Saved VIPs
+          </span>
+          <button
+            type="button"
+            onClick={newVip}
+            className="text-xs text-fg-faint transition-colors hover:text-accent"
+          >
+            + New
+          </button>
+        </div>
+        <div className="overflow-hidden rounded-2xl border border-line bg-surface/60 shadow-card">
+          {roster.length === 0 ? (
+            <p className="px-4 py-8 text-center text-sm text-fg-muted">
+              No saved VIPs yet. Fill the form and click <span className="text-fg">Save</span>.
+            </p>
+          ) : (
+            <div className="divide-y divide-line-soft/60">
+              {roster.map((v) => (
+                <div
+                  key={v.id}
+                  className={`group flex items-center gap-2 px-3 py-2.5 transition-colors ${
+                    activeId === v.id ? "bg-accent/10" : "hover:bg-white/[0.03]"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => loadVip(v)}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`shrink-0 ${LEVEL_DOT[v.last_level ?? ""] ?? "text-fg-faint"}`}>●</span>
+                      <span className={`truncate text-sm ${activeId === v.id ? "text-accent" : "text-fg"}`}>
+                        {v.name}
+                      </span>
+                      {v.last_score != null && (
+                        <span className="ml-auto shrink-0 font-mono text-[11px] text-fg-faint">{v.last_score}</span>
+                      )}
+                    </div>
+                    <div className="mt-0.5 truncate font-mono text-[11px] text-fg-faint">
+                      {v.profile.company || "—"} · {relTime(v.last_assessed)}
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => remove(v.id)}
+                    title="Delete"
+                    className="shrink-0 text-fg-faint opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Form + scorecard */}
+      <div className="flex flex-col gap-5">
       {/* Input form */}
       <div className="rounded-2xl border border-line bg-surface/60 p-5 shadow-card">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -254,11 +405,15 @@ export default function VipView() {
           </button>
           <button
             type="button"
-            onClick={() => {
-              setForm(EMPTY);
-              setData(null);
-              setError(null);
-            }}
+            onClick={save}
+            disabled={saving}
+            className="rounded-lg border border-line px-3 py-2 text-sm font-medium text-fg-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+          >
+            {saving ? "Saving…" : activeId != null ? "Update saved VIP" : "Save VIP"}
+          </button>
+          <button
+            type="button"
+            onClick={newVip}
             className="text-xs text-fg-faint hover:text-fg"
           >
             Reset
@@ -459,6 +614,7 @@ export default function VipView() {
           emails and any handles you discover for a fuller picture.
         </p>
       )}
+      </div>
     </div>
   );
 }

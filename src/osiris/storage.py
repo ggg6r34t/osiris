@@ -75,6 +75,16 @@ CREATE TABLE IF NOT EXISTS takedown_events (
   detail TEXT DEFAULT '',
   FOREIGN KEY(takedown_id) REFERENCES takedowns(id) ON DELETE CASCADE
 );
+CREATE TABLE IF NOT EXISTS vip_profiles (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  profile TEXT NOT NULL,
+  last_score INTEGER,
+  last_level TEXT,
+  last_assessed REAL,
+  created_at REAL NOT NULL,
+  updated_at REAL NOT NULL
+);
 """
 
 # Lifecycle states and the liveness states that count as "down" vs "up".
@@ -394,6 +404,76 @@ def _median(xs: list) -> Optional[float]:
     n = len(s)
     m = n // 2
     return round(s[m] if n % 2 else (s[m - 1] + s[m]) / 2, 2)
+
+
+# --------------------------------------------------------------------------- #
+# Saved VIP profiles (roster)
+# --------------------------------------------------------------------------- #
+def _vip_row(r: sqlite3.Row) -> dict:
+    return {
+        "id": r["id"],
+        "name": r["name"],
+        "profile": json.loads(r["profile"] or "{}"),
+        "last_score": r["last_score"],
+        "last_level": r["last_level"],
+        "last_assessed": r["last_assessed"],
+        "created_at": r["created_at"],
+        "updated_at": r["updated_at"],
+    }
+
+
+def create_vip(name: str, profile: dict) -> int:
+    now = time.time()
+    with _lock:
+        db = _db()
+        cur = db.execute(
+            "INSERT INTO vip_profiles (name, profile, created_at, updated_at) VALUES (?,?,?,?)",
+            (name, json.dumps(profile), now, now),
+        )
+        db.commit()
+        return cur.lastrowid
+
+
+def update_vip(vip_id: int, name: str, profile: dict) -> Optional[dict]:
+    with _lock:
+        db = _db()
+        if not db.execute("SELECT 1 FROM vip_profiles WHERE id=?", (vip_id,)).fetchone():
+            return None
+        db.execute(
+            "UPDATE vip_profiles SET name=?, profile=?, updated_at=? WHERE id=?",
+            (name, json.dumps(profile), time.time(), vip_id),
+        )
+        db.commit()
+    return get_vip(vip_id)
+
+
+def record_vip_result(vip_id: int, score: Optional[int], level: Optional[str]) -> None:
+    with _lock:
+        db = _db()
+        db.execute(
+            "UPDATE vip_profiles SET last_score=?, last_level=?, last_assessed=?, updated_at=? WHERE id=?",
+            (score, level, time.time(), time.time(), vip_id),
+        )
+        db.commit()
+
+
+def list_vips() -> list[dict]:
+    with _lock:
+        rows = _db().execute("SELECT * FROM vip_profiles ORDER BY updated_at DESC").fetchall()
+    return [_vip_row(r) for r in rows]
+
+
+def get_vip(vip_id: int) -> Optional[dict]:
+    with _lock:
+        r = _db().execute("SELECT * FROM vip_profiles WHERE id=?", (vip_id,)).fetchone()
+    return _vip_row(r) if r else None
+
+
+def delete_vip(vip_id: int) -> None:
+    with _lock:
+        db = _db()
+        db.execute("DELETE FROM vip_profiles WHERE id=?", (vip_id,))
+        db.commit()
 
 
 def metrics() -> dict:

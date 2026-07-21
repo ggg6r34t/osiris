@@ -34,6 +34,7 @@ import type {
   Takedown,
   TakedownEmail,
   UrlAnalysis,
+  SavedVip,
   VipInput,
   VipScorecard,
   WatchTarget,
@@ -396,11 +397,28 @@ export function runMonitor(target: string): Promise<MonitorReport> {
   });
 }
 
-export function assessVip(input: VipInput): Promise<VipScorecard> {
+export function assessVip(input: VipInput, saveId?: number): Promise<VipScorecard> {
   return jsonFetch<VipScorecard>("/api/vip/assess", {
     method: "POST",
-    body: JSON.stringify(input),
+    body: JSON.stringify(saveId != null ? { ...input, save_id: saveId } : input),
   });
+}
+
+// --- Saved VIP roster ---
+export async function getVips(): Promise<SavedVip[]> {
+  const d = await jsonFetch<{ vips: SavedVip[] }>("/api/vips");
+  return d.vips;
+}
+
+export function saveVip(profile: VipInput, id?: number): Promise<SavedVip> {
+  return jsonFetch<SavedVip>("/api/vips", {
+    method: "POST",
+    body: JSON.stringify(id != null ? { id, profile } : { profile }),
+  });
+}
+
+export function deleteVip(id: number): Promise<{ ok: boolean }> {
+  return jsonFetch(`/api/vips/${id}`, { method: "DELETE" });
 }
 
 // --- IOC extraction + interop export ---

@@ -1032,6 +1032,22 @@ class VipRequest(BaseModel):
     company: str = ""
     country: str = ""
     known_impersonations: int = 0
+    save_id: int | None = None  # if set, record the result to this saved VIP
+
+
+def _score_band(score) -> str:
+    if not isinstance(score, (int, float)):
+        return "unknown"
+    if score >= 70:
+        return "high"
+    if score >= 40:
+        return "medium"
+    return "low"
+
+
+class VipSaveRequest(BaseModel):
+    id: int | None = None  # set to update an existing saved VIP
+    profile: VipRequest
 
 
 @app.post("/api/vip/assess")
@@ -1042,7 +1058,9 @@ def api_vip_assess(req: VipRequest):
     if not name:
         raise HTTPException(status_code=422, detail="A VIP name is required.")
 
-    scorecard = _bounded(lambda: _run(assess_vip, req.model_dump()), 180)
+    payload = req.model_dump()
+    payload.pop("save_id", None)
+    scorecard = _bounded(lambda: _run(assess_vip, payload), 180)
     _record(
         "vip",
         name,
@@ -1051,7 +1069,38 @@ def api_vip_assess(req: VipRequest):
             "levels": scorecard.get("levels"),
         },
     )
+    if req.save_id is not None:
+        score = scorecard.get("overall_score")
+        storage.record_vip_result(req.save_id, score, _score_band(score))
     return scorecard
+
+
+# --- Saved VIP roster ---
+@app.get("/api/vips")
+def api_vips_list():
+    return {"vips": storage.list_vips()}
+
+
+@app.post("/api/vips")
+def api_vips_save(req: VipSaveRequest):
+    name = (req.profile.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="A VIP name is required.")
+    profile = req.profile.model_dump()
+    profile.pop("save_id", None)
+    if req.id is not None:
+        updated = storage.update_vip(req.id, name, profile)
+        if not updated:
+            raise HTTPException(status_code=404, detail="Saved VIP not found.")
+        return updated
+    vip_id = storage.create_vip(name, profile)
+    return storage.get_vip(vip_id)
+
+
+@app.delete("/api/vips/{vip_id}")
+def api_vips_delete(vip_id: int):
+    storage.delete_vip(vip_id)
+    return {"ok": True}
 
 
 # --------------------------------------------------------------------------- #

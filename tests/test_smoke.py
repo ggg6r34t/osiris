@@ -495,6 +495,32 @@ def test_import_custom_platforms_validation(tmp_path, monkeypatch):
     assert len(r["skipped"]) == 3  # NoQuery, BadScheme, bad(not-an-object)
 
 
+def test_vip_roster_storage(tmp_path, monkeypatch):
+    import osiris.storage as st
+
+    monkeypatch.setattr(st, "DB_PATH", str(tmp_path / "v.db"))
+    monkeypatch.setattr(st, "_conn", None)
+
+    vid = st.create_vip("Jane Executive", {"name": "Jane Executive", "company": "Acme"})
+    v = st.get_vip(vid)
+    assert v["name"] == "Jane Executive" and v["profile"]["company"] == "Acme"
+    assert v["last_score"] is None
+
+    # recording a result updates the snapshot
+    st.record_vip_result(vid, 72, "high")
+    v = st.get_vip(vid)
+    assert v["last_score"] == 72 and v["last_level"] == "high"
+
+    # update profile
+    st.update_vip(vid, "Jane E.", {"name": "Jane E.", "company": "Globex"})
+    assert st.get_vip(vid)["profile"]["company"] == "Globex"
+    assert st.get_vip(vid)["last_score"] == 72  # result snapshot preserved
+
+    assert len(st.list_vips()) == 1
+    st.delete_vip(vid)
+    assert st.get_vip(vid) is None
+
+
 def test_integrations_status_no_secret_leak(monkeypatch):
     from osiris.api import api_integrations
 

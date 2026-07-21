@@ -354,6 +354,17 @@ export type VipInput = {
   known_impersonations: number;
 };
 
+export type SavedVip = {
+  id: number;
+  name: string;
+  profile: VipInput;
+  last_score: number | null;
+  last_level: string | null;
+  last_assessed: number | null;
+  created_at: number;
+  updated_at: number;
+};
+
 export type VipPivot = { label: string; url: string };
 export type VipSearchPivot = { platform: string; category: string; url: string };
 
