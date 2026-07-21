@@ -12,6 +12,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from osiris import __version__
 from osiris.clone_detector import detect_clones
 from osiris.config import apply_proxy_env
 from osiris.data.platforms import PLATFORM_TEMPLATES
@@ -374,7 +375,7 @@ def api_integrations():
             "ssrf_guard": os.getenv("OSIRIS_ALLOW_PRIVATE_TARGETS", "false").lower() != "true",
         },
         "storage": {"db_path": os.path.basename(storage.DB_PATH), **counts},
-        "version": os.getenv("OSIRIS_VERSION", "1.0"),
+        "version": os.getenv("OSIRIS_VERSION") or __version__,
     }
 
 

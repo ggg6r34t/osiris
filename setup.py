@@ -2,8 +2,8 @@ from setuptools import setup, find_packages
 
 setup(
     name='osiris',
-    version='1.0.0',
-    description='A powerful OSINT CLI tool for investigating trademark violations, people, scams, phishing, and more.',
+    version='2.0.0',
+    description='A single-operator investigation workbench for brand abuse, phishing, and executive protection.',
     author='ggg6r43t',
     author_email='ghyorka@proton.me',
     url='https://github.com/ggg6r34t/osiris',

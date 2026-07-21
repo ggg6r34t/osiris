@@ -13,7 +13,7 @@ export default function Header() {
               OSIRIS
             </span>
             <span className="rounded border border-line bg-surface px-1.5 py-px text-[10px] font-medium uppercase tracking-wider text-fg-faint">
-              v1
+              v2
             </span>
           </div>
           <span className="text-[11px] text-fg-muted">Investigation workbench</span>
