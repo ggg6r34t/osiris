@@ -560,6 +560,62 @@ def test_playbook_assess_orchestration(tmp_path, monkeypatch):
     assert len(st.get_case(r["case_id"])["items"]) == 4
 
 
+def test_playbook_assess_urlscan_escalation(tmp_path, monkeypatch):
+    import osiris.storage as st
+    import osiris.playbooks as pb
+    import osiris.enrichment as en
+    import osiris.url_analyzer as ua
+    import osiris.feeds as fe
+    import osiris.abuse_router as ar
+    import osiris.urlscan as us
+
+    monkeypatch.setattr(st, "DB_PATH", str(tmp_path / "pbu.db"))
+    monkeypatch.setattr(st, "_conn", None)
+    # medium-risk preliminary signals (so urlscan escalation fires)
+    monkeypatch.setattr(en, "enrich", lambda url: {"risk_score": 50})
+    monkeypatch.setattr(ua, "analyze_url", lambda url: {"reachable": True, "risk": "medium", "credential_forms": 0, "flags": []})
+    monkeypatch.setattr(fe, "check_reputation", lambda d: {"verdict": "clean", "sources": []})
+    monkeypatch.setattr(ar, "route_abuse", lambda d: {"verdict": {"state": "live", "label": "Live"}, "registrar": {}, "hosting": {}, "escalation": []})
+    monkeypatch.setattr(us, "configured", lambda: True)
+    monkeypatch.setattr(
+        us, "scan",
+        lambda url, *a, **k: {"pending": False, "result_url": "https://urlscan.io/result/x/", "verdict": {"malicious": True, "score": 90, "brands": ["PayPal"]}},
+    )
+
+    r = pb.run_playbook("assess", "evil.com")
+    us_steps = [s for s in r["steps"] if s["key"] == "urlscan"]
+    assert us_steps and us_steps[0]["status"] == "ok"
+    assert r["risk"]["level"] == "high"  # malicious urlscan escalated medium → high
+    assert r["takedown_id"]  # high → takedown opened
+    assert any("urlscan.io report" in x for x in r["recommendations"])
+
+
+def test_playbook_assess_urlscan_skipped_when_low(tmp_path, monkeypatch):
+    import osiris.storage as st
+    import osiris.playbooks as pb
+    import osiris.enrichment as en
+    import osiris.url_analyzer as ua
+    import osiris.feeds as fe
+    import osiris.abuse_router as ar
+    import osiris.urlscan as us
+
+    monkeypatch.setattr(st, "DB_PATH", str(tmp_path / "pbu2.db"))
+    monkeypatch.setattr(st, "_conn", None)
+    monkeypatch.setattr(en, "enrich", lambda url: {"risk_score": 5})
+    monkeypatch.setattr(ua, "analyze_url", lambda url: {"reachable": True, "risk": "low", "flags": []})
+    monkeypatch.setattr(fe, "check_reputation", lambda d: {"verdict": "clean", "sources": []})
+    monkeypatch.setattr(ar, "route_abuse", lambda d: {"verdict": {}, "registrar": {}, "hosting": {}, "escalation": []})
+    monkeypatch.setattr(us, "configured", lambda: True)
+
+    def boom(*a, **k):
+        raise AssertionError("urlscan.scan should not run on a low-risk domain")
+
+    monkeypatch.setattr(us, "scan", boom)
+    r = pb.run_playbook("assess", "benign.com")
+    us_steps = [s for s in r["steps"] if s["key"] == "urlscan"]
+    assert us_steps and us_steps[0]["status"] == "skipped"
+
+
 def test_playbook_brand_and_isolation(tmp_path, monkeypatch):
     import osiris.storage as st
     import osiris.playbooks as pb

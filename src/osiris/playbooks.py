@@ -14,7 +14,7 @@ PLAYBOOKS = {
     "assess": {
         "id": "assess",
         "name": "Domain / phishing assessment",
-        "description": "Enrich → page analysis → reputation → abuse routing. Files a case and opens a takedown when high-risk.",
+        "description": "Enrich → page analysis → reputation → abuse routing, plus a urlscan.io deep scan on risky domains (if configured). Files a case and opens a takedown when high-risk.",
         "target_label": "Domain or URL",
     },
     "brand": {
@@ -105,6 +105,28 @@ def _run_assess(target: str) -> dict:
 
     level = _max_level(enrich_level, url_level, rep_level)
 
+    # Escalation — deep-scan risky domains with urlscan.io (opt-in via key). Only
+    # fires for medium/high preliminary risk so benign domains stay fast and we
+    # don't burn urlscan quota. A malicious verdict escalates to high.
+    us_report = None
+    from osiris.urlscan import configured as _us_configured, scan as _us_scan
+
+    if _us_configured():
+        if level in ("medium", "high"):
+            us_step = _step("urlscan", "urlscan.io sandbox scan", lambda: _us_scan(url))
+            steps.append(us_step)
+            if us_step["status"] == "ok":
+                usd = us_step["data"] or {}
+                uv = usd.get("verdict") or {}
+                us_report = usd.get("result_url")
+                if uv.get("malicious"):
+                    reasons.append(f"urlscan.io flagged malicious (score {uv.get('score')})")
+                    level = "high"
+        else:
+            steps.append(
+                {"key": "urlscan", "label": "urlscan.io sandbox scan", "status": "skipped", "data": None, "error": None}
+            )
+
     # --- persist: case + findings ---
     case_id = storage.create_case(f"{domain} — assessment", note=f"Playbook: {PLAYBOOKS['assess']['name']}")
     for s in steps:
@@ -127,6 +149,9 @@ def _run_assess(target: str) -> dict:
             recommendations.append(f"Report to {top.get('target')} ({top.get('label')}): {top.get('value') or 'no public contact'}")
         if verdict.get("state") in ("live", "resolves-no-response"):
             recommendations.append(f"Target is {verdict.get('label','live')} — act promptly.")
+
+    if us_report:
+        recommendations.append(f"urlscan.io report: {us_report}")
 
     if level == "high":
         takedown_id = storage.create_takedown(domain, contact=best_contact, note=f"Auto-opened by {PLAYBOOKS['assess']['name']} playbook")
@@ -197,10 +222,17 @@ def _run_brand(target: str) -> dict:
 
 
 def _summarize(step: dict) -> str:
+    if step["status"] == "skipped":
+        return "skipped — low preliminary risk"
     if step["status"] != "ok":
         return f"failed ({step['error']})"
     d = step["data"]
     k = step["key"]
+    if k == "urlscan":
+        if d and d.get("pending"):
+            return "submitted — pending on urlscan.io"
+        uv = (d or {}).get("verdict", {})
+        return ("malicious" if uv.get("malicious") else "not flagged") + f" (score {uv.get('score', 0)})"
     if k == "enrich":
         return f"risk score {(d or {}).get('risk_score', '?')}"
     if k == "url":
