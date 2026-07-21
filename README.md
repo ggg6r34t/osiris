@@ -232,7 +232,8 @@ organized into sections — **Search**, **Domain Tools**, **VIP**, **Cases**, **
   risk level), **URLScan** (submits a URL to **urlscan.io** for a sandboxed browser render — from urlscan's infra,
   not yours — returning a screenshot, malicious verdict + score, targeted brands, and the contacted-infrastructure
   map for campaign pivoting; defaults to an **unlisted** scan so it isn't exposed in urlscan's public search;
-  needs `URLSCAN_API_KEY`), **Reputation** (checks a domain/IP against phishing & malware feeds — URLhaus, Spamhaus, SURBL, and
+  needs `URLSCAN_API_KEY`), **Wayback** (archive.org history for a domain — first/last capture, years archived, and a
+  per-year snapshot timeline; keyless), **Reputation** (checks a domain/IP against phishing & malware feeds — URLhaus, Spamhaus, SURBL, and
   Google Safe Browsing if a key is set — and rolls the hits into a listed/clean verdict), **Abuse Router** (for
   any domain: resolves *who to report abuse to* — registrar, hosting/CDN,
   email provider — with abuse-email **or web-form** links and an ordered escalation path, plus a live-status verdict

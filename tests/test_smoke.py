@@ -692,6 +692,40 @@ def test_http_get_blocks_private(monkeypatch):
         en.http_get("http://127.0.0.1:8000/")
 
 
+def test_wayback_parse_and_graceful(monkeypatch):
+    import osiris.wayback as wb
+
+    assert wb._norm("https://sub.example.com/path?x=1") == "sub.example.com"
+
+    class FakeResp:
+        status_code = 200
+        ok = True
+
+        def json(self):
+            return [
+                ["timestamp", "original", "statuscode"],
+                ["20180620120000", "http://example.com/", "200"],
+                ["20120115000000", "http://example.com/", "200"],
+                ["20240301090000", "http://example.com/", "301"],
+            ]
+
+    monkeypatch.setattr(wb.requests, "get", lambda *a, **k: FakeResp())
+    r = wb.history("example.com")
+    assert r["found"] and r["years"] == 3
+    assert r["first"]["date"] == "2012-01-15"  # sorted ascending
+    assert r["last"]["date"] == "2024-03-01"
+    assert r["first"]["url"].startswith("https://web.archive.org/web/20120115000000/")
+
+    # graceful when archive.org is unreachable
+    def boom(*a, **k):
+        raise wb.requests.RequestException("503")
+
+    monkeypatch.setattr(wb.requests, "get", boom)
+    monkeypatch.setattr(wb.time, "sleep", lambda *_a: None)
+    g = wb.history("example.com")
+    assert g["found"] is False and g["years"] == 0 and "error" in g
+
+
 def test_urlscan_graceful_and_brand_parsing(monkeypatch):
     import osiris.urlscan as us
 

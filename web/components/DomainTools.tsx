@@ -6,6 +6,7 @@ import AbuseRouterView from "./domain/AbuseRouterView";
 import UrlAnalyzeView from "./domain/UrlAnalyzeView";
 import UrlScanView from "./domain/UrlScanView";
 import ReputationView from "./domain/ReputationView";
+import WaybackView from "./domain/WaybackView";
 import DomainMatchView from "./domain/DomainMatchView";
 import DnstwistView from "./domain/DnstwistView";
 import CloneDetectView from "./domain/CloneDetectView";
@@ -19,6 +20,7 @@ type ToolKey =
   | "url-analyze"
   | "urlscan"
   | "reputation"
+  | "wayback"
   | "abuse-router"
   | "ip-pivot"
   | "domain-match"
@@ -34,6 +36,7 @@ const TOOLS: { key: ToolKey; label: string; blurb: string }[] = [
   { key: "url-analyze", label: "URL Analyze", blurb: "Fetch page · credential forms · brand impersonation" },
   { key: "urlscan", label: "URLScan", blurb: "urlscan.io sandbox render · screenshot · infra" },
   { key: "reputation", label: "Reputation", blurb: "Threat-feed & blocklist status" },
+  { key: "wayback", label: "Wayback", blurb: "archive.org history · snapshot timeline" },
   { key: "abuse-router", label: "Abuse Router", blurb: "Who to report to · is it still live?" },
   { key: "ip-pivot", label: "IP Pivot", blurb: "Reverse-IP · co-hosted domains" },
   { key: "domain-match", label: "Domain Match", blurb: "Registered lookalikes" },
@@ -74,6 +77,7 @@ export default function DomainTools() {
       {tool === "url-analyze" && <UrlAnalyzeView />}
       {tool === "urlscan" && <UrlScanView />}
       {tool === "reputation" && <ReputationView />}
+      {tool === "wayback" && <WaybackView />}
       {tool === "abuse-router" && <AbuseRouterView />}
       {tool === "ip-pivot" && <IpPivotView />}
       {tool === "domain-match" && <DomainMatchView />}

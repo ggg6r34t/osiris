@@ -35,6 +35,7 @@ import type {
   TakedownEmail,
   UrlAnalysis,
   UrlScanResult,
+  WaybackResult,
   SavedVip,
   VipInput,
   VipScorecard,
@@ -453,6 +454,13 @@ export function urlscanScan(
   return jsonFetch<UrlScanResult>("/api/urlscan", {
     method: "POST",
     body: JSON.stringify({ url, visibility }),
+  });
+}
+
+export function waybackHistory(domain: string, refresh = false): Promise<WaybackResult> {
+  return jsonFetch<WaybackResult>("/api/wayback", {
+    method: "POST",
+    body: JSON.stringify({ domain, refresh }),
   });
 }
 

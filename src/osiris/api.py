@@ -1127,6 +1127,20 @@ def api_urlscan(req: UrlScanRequest):
     return result
 
 
+@app.post("/api/wayback")
+def api_wayback(req: DomainRequest):
+    from osiris.wayback import history
+
+    domain = _valid_domain(req.domain)
+    result = _cached(
+        f"wayback:{domain}",
+        lambda: _bounded(lambda: _run(history, domain), 60),
+        refresh=req.refresh,
+    )
+    _record("wayback", domain, {"years": result.get("years")})
+    return result
+
+
 @app.post("/api/abuse-route")
 def api_abuse_route(req: DomainRequest):
     from osiris.abuse_router import route_abuse

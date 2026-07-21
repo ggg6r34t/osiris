@@ -322,6 +322,24 @@ export type UrlScanResult = {
   };
 };
 
+export type WaybackSnapshot = {
+  date: string;
+  timestamp: string;
+  url: string;
+  status: string;
+};
+
+export type WaybackResult = {
+  domain: string;
+  found: boolean;
+  years: number;
+  first: WaybackSnapshot | null;
+  last: WaybackSnapshot | null;
+  timeline: WaybackSnapshot[];
+  overview_url: string;
+  error?: string;
+};
+
 export type AbuseContactMethod = "email" | "form" | "none";
 
 export type AbuseEscalation = {
