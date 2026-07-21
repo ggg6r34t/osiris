@@ -174,7 +174,19 @@ export default function AbuseRouterView() {
               {data.registrar.abuse_phone && <KV k="Abuse phone" v={data.registrar.abuse_phone} />}
               <KV k="IANA ID" v={data.registrar.iana_id} />
               <KV k="Registered" v={data.registrar.registration?.slice(0, 10)} />
+              <KV
+                k="Age"
+                v={
+                  data.registrar.age ? (
+                    <span className={data.registrar.recently_registered ? "text-amber-300" : undefined}>
+                      {data.registrar.age}
+                      {data.registrar.recently_registered && " · recently registered"}
+                    </span>
+                  ) : null
+                }
+              />
               <KV k="Expires" v={data.registrar.expiration?.slice(0, 10)} />
+              <KV k="Registered for" v={data.registrar.registered_for} />
               <KV k="Status" v={data.registrar.status?.join(", ")} />
               <KV k="Registrant" v={data.registrant.name || data.registrant.org || "— redacted"} />
               {data.registrant.email && <KV k="Registrant email" v={data.registrant.email} />}

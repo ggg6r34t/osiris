@@ -14,6 +14,7 @@ import json
 import os
 import socket
 import urllib.parse
+from datetime import datetime, timezone
 from typing import Optional
 
 import dns.resolver
@@ -403,6 +404,31 @@ def reporting_channels(domain: str) -> list:
     ]
 
 
+def _parse_rdap_date(s: Optional[str]) -> Optional[datetime]:
+    if not s:
+        return None
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00"))
+    except ValueError:
+        try:
+            return datetime.strptime(s[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        except ValueError:
+            return None
+
+
+def _humanize_days(days: Optional[int]) -> Optional[str]:
+    if days is None:
+        return None
+    days = max(0, int(days))
+    if days < 45:
+        return f"{days} day{'s' if days != 1 else ''}"
+    if days < 730:
+        months = round(days / 30.44)
+        return f"{months} month{'s' if months != 1 else ''}"
+    years = days / 365.25
+    return f"{years:.1f} years"
+
+
 def normalize_target(domain: str) -> str:
     domain = (domain or "").strip().lower().rstrip(".")
     if domain.startswith("http"):
@@ -451,6 +477,12 @@ def route_abuse(domain: str) -> dict:
         whois_data = get_whois_info(domain)
         reg_name = reg_name or (whois_data.get("domain_info") or {}).get("registrar")
 
+    # Domain age (since registration) + registration term (registration→expiry).
+    reg_dt = _parse_rdap_date(rdap.get("registration"))
+    exp_dt = _parse_rdap_date(rdap.get("expiration"))
+    age_days = (datetime.now(timezone.utc) - reg_dt).days if reg_dt else None
+    term_days = (exp_dt - reg_dt).days if (reg_dt and exp_dt) else None
+
     # Contact — prefer RDAP abuse email, fall back to the curated map by name.
     reg_map = _lookup_contact(reg_name)
     registrar = {
@@ -458,6 +490,10 @@ def route_abuse(domain: str) -> dict:
         "iana_id": rdap.get("registrar_iana_id"),
         "registration": rdap.get("registration"),
         "expiration": rdap.get("expiration"),
+        "age": _humanize_days(age_days),
+        "age_days": age_days,
+        "recently_registered": age_days is not None and age_days < 90,
+        "registered_for": _humanize_days(term_days),
         "status": rdap.get("status", []),
         "abuse_email": rdap.get("registrar_abuse_email") or reg_map.get("email"),
         "abuse_form": reg_map.get("form"),

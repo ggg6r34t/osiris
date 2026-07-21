@@ -864,6 +864,23 @@ def test_takedown_no_autochange_from_terminal(tmp_path, monkeypatch):
     assert t["status"] == "new" and t["status_changed"] is False
 
 
+def test_abuse_domain_age_helpers():
+    import osiris.abuse_router as ar
+
+    assert ar._humanize_days(10) == "10 days"
+    assert ar._humanize_days(1) == "1 day"
+    assert ar._humanize_days(120) == "4 months"
+    assert ar._humanize_days(365) == "12 months"  # < 730d → months
+    assert ar._humanize_days(1000) == "2.7 years"  # >= 730d → years
+    assert ar._humanize_days(None) is None
+
+    d = ar._parse_rdap_date("1997-09-15T04:00:00Z")
+    assert d is not None and d.year == 1997
+    assert ar._parse_rdap_date("2020-01-01").year == 2020
+    assert ar._parse_rdap_date("garbage") is None
+    assert ar._parse_rdap_date(None) is None
+
+
 def test_abuse_verdict_logic():
     import osiris.abuse_router as ar
 

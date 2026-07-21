@@ -308,6 +308,10 @@ export type AbuseRouteResult = {
     iana_id: string | null;
     registration: string | null;
     expiration: string | null;
+    age: string | null;
+    age_days: number | null;
+    recently_registered: boolean;
+    registered_for: string | null;
     status: string[];
     abuse_email: string | null;
     abuse_form: string | null;
