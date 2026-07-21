@@ -50,8 +50,10 @@ body {
   color: #fff;
 }
 
-/* Keyboard focus ring — accessibility + polish. */
-:focus-visible {
+/* Keyboard focus ring — accessibility + polish. Form fields are excluded: they
+   provide their own focus styling (ring / focus-within), and a second outline
+   here would draw a box-inside-a-box on inputs nested in a styled container. */
+:focus-visible:not(input):not(textarea):not(select) {
   outline: 2px solid color-mix(in srgb, var(--color-accent) 70%, transparent);
   outline-offset: 2px;
   border-radius: 6px;

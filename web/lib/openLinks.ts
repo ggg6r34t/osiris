@@ -13,6 +13,11 @@ export type OpenOptions = {
  *
  * Only http(s) URLs are opened (never javascript:/data:/etc.).
  * Returns { opened, attempted } so the caller can warn if the blocker ate some.
+ *
+ * Note: we deliberately do NOT pass "noopener" to window.open — with it, the
+ * call returns null even on success, which would make `opened` always 0. Instead
+ * we open normally (null return only means blocked) and sever `win.opener`
+ * ourselves for the same reverse-tabnabbing protection.
  */
 export function openLinks(
   urls: string[],
@@ -35,8 +40,15 @@ export function openLinks(
 
   let opened = 0;
   for (const url of list) {
-    const win = window.open(url, "_blank", "noopener,noreferrer");
-    if (win) opened += 1;
+    const win = window.open(url, "_blank");
+    if (win) {
+      try {
+        win.opener = null; // sever reverse-tabnabbing without losing the count
+      } catch {
+        /* cross-origin access may throw — the tab still opened */
+      }
+      opened += 1;
+    }
   }
 
   return { opened, attempted: list.length };
