@@ -14,7 +14,7 @@ PLAYBOOKS = {
     "assess": {
         "id": "assess",
         "name": "Domain / phishing assessment",
-        "description": "Enrich → page analysis → reputation → abuse routing, plus a urlscan.io deep scan on risky domains (if configured). Files a case and opens a takedown when high-risk.",
+        "description": "Enrich → page analysis → reputation → abuse routing → DNS posture, plus deep pivots on risky domains (urlscan.io, subdomains, favicon). Files a case and opens a takedown when high-risk.",
         "target_label": "Domain or URL",
     },
     "brand": {
@@ -67,6 +67,7 @@ def _normalize(target: str) -> str:
 
 def _run_assess(target: str) -> dict:
     from osiris.abuse_router import route_abuse
+    from osiris.dns_posture import posture
     from osiris.enrichment import enrich
     from osiris.feeds import check_reputation
     from osiris.url_analyzer import analyze_url
@@ -79,6 +80,7 @@ def _run_assess(target: str) -> dict:
         _step("url", "Page analysis (forms / brand / redirects)", lambda: analyze_url(url)),
         _step("reputation", "Threat-feed reputation", lambda: check_reputation(domain)),
         _step("abuse", "Abuse routing + live status", lambda: route_abuse(domain)),
+        _step("posture", "Email/DNS posture", lambda: posture(domain)),
     ]
     by = {s["key"]: s for s in steps}
 
@@ -105,14 +107,20 @@ def _run_assess(target: str) -> dict:
 
     level = _max_level(enrich_level, url_level, rep_level)
 
-    # Escalation — deep-scan risky domains with urlscan.io (opt-in via key). Only
-    # fires for medium/high preliminary risk so benign domains stay fast and we
-    # don't burn urlscan quota. A malicious verdict escalates to high.
+    # Escalation — heavier pivots run only for medium/high preliminary risk, so
+    # benign domains stay fast. A malicious urlscan verdict escalates to high.
     us_report = None
+    favicon_shodan_total = 0
+    subdomain_count = None
+    from osiris.favicon import pivot as _favicon_pivot
+    from osiris.subdomains import enumerate_subdomains as _enum_subs
     from osiris.urlscan import configured as _us_configured, scan as _us_scan
 
-    if _us_configured():
-        if level in ("medium", "high"):
+    def _skip(key, label):
+        return {"key": key, "label": label, "status": "skipped", "data": None, "error": None}
+
+    if level in ("medium", "high"):
+        if _us_configured():
             us_step = _step("urlscan", "urlscan.io sandbox scan", lambda: _us_scan(url))
             steps.append(us_step)
             if us_step["status"] == "ok":
@@ -122,10 +130,21 @@ def _run_assess(target: str) -> dict:
                 if uv.get("malicious"):
                     reasons.append(f"urlscan.io flagged malicious (score {uv.get('score')})")
                     level = "high"
-        else:
-            steps.append(
-                {"key": "urlscan", "label": "urlscan.io sandbox scan", "status": "skipped", "data": None, "error": None}
-            )
+
+        sub_step = _step("subdomains", "Subdomain enumeration (crt.sh)", lambda: _enum_subs(domain))
+        steps.append(sub_step)
+        if sub_step["status"] == "ok":
+            subdomain_count = (sub_step["data"] or {}).get("total")
+
+        fav_step = _step("favicon", "Favicon pivot", lambda: _favicon_pivot(domain))
+        steps.append(fav_step)
+        if fav_step["status"] == "ok":
+            favicon_shodan_total = ((fav_step["data"] or {}).get("shodan") or {}).get("total", 0)
+    else:
+        if _us_configured():
+            steps.append(_skip("urlscan", "urlscan.io sandbox scan"))
+        steps.append(_skip("subdomains", "Subdomain enumeration (crt.sh)"))
+        steps.append(_skip("favicon", "Favicon pivot"))
 
     # --- persist: case + findings ---
     case_id = storage.create_case(f"{domain} — assessment", note=f"Playbook: {PLAYBOOKS['assess']['name']}")
@@ -150,6 +169,12 @@ def _run_assess(target: str) -> dict:
         if verdict.get("state") in ("live", "resolves-no-response"):
             recommendations.append(f"Target is {verdict.get('label','live')} — act promptly.")
 
+    if by.get("posture", {}).get("status") == "ok" and (by["posture"]["data"] or {}).get("spoofable"):
+        recommendations.append("No DMARC enforcement — domain is spoofable (see DNS Posture).")
+    if subdomain_count:
+        recommendations.append(f"{subdomain_count} subdomains found — review for related infrastructure (Subdomains).")
+    if favicon_shodan_total and favicon_shodan_total > 1:
+        recommendations.append(f"Favicon shared by {favicon_shodan_total} host(s) — pivot in Favicon Pivot.")
     if us_report:
         recommendations.append(f"urlscan.io report: {us_report}")
 
@@ -233,6 +258,17 @@ def _summarize(step: dict) -> str:
             return "submitted — pending on urlscan.io"
         uv = (d or {}).get("verdict", {})
         return ("malicious" if uv.get("malicious") else "not flagged") + f" (score {uv.get('score', 0)})"
+    if k == "posture":
+        return f"{(d or {}).get('grade', '?')}" + (" · spoofable" if (d or {}).get("spoofable") else "")
+    if k == "subdomains":
+        if d and not d.get("found"):
+            return "unavailable"
+        return f"{(d or {}).get('total', 0)} found · {(d or {}).get('resolved', 0)} live"
+    if k == "favicon":
+        if d and not d.get("found"):
+            return "no favicon"
+        sh = (d or {}).get("shodan") or {}
+        return f"hash {(d or {}).get('hash')}" + (f" · {sh.get('total')} hosts" if sh.get("configured") else "")
     if k == "enrich":
         return f"risk score {(d or {}).get('risk_score', '?')}"
     if k == "url":

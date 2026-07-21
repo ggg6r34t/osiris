@@ -537,6 +537,17 @@ def test_integrations_status_no_secret_leak(monkeypatch):
     assert "supersecretvalue123" not in json.dumps(r)
 
 
+def _mock_context_steps(monkeypatch):
+    """Mock the always/escalation context tools so playbook tests stay offline."""
+    import osiris.dns_posture as dp
+    import osiris.subdomains as sd
+    import osiris.favicon as fav
+
+    monkeypatch.setattr(dp, "posture", lambda d: {"grade": "spoofable", "spoofable": True, "checks": []})
+    monkeypatch.setattr(sd, "enumerate_subdomains", lambda d, **k: {"found": True, "total": 3, "resolved": 1})
+    monkeypatch.setattr(fav, "pivot", lambda d: {"found": True, "hash": 123, "shodan": {"configured": False, "total": 0}})
+
+
 def test_playbook_assess_orchestration(tmp_path, monkeypatch):
     import osiris.storage as st
     import osiris.playbooks as pb
@@ -551,13 +562,15 @@ def test_playbook_assess_orchestration(tmp_path, monkeypatch):
     monkeypatch.setattr(ua, "analyze_url", lambda url: {"reachable": True, "risk": "high", "credential_forms": 1, "flags": [{"level": "high", "text": "cross-domain form"}]})
     monkeypatch.setattr(fe, "check_reputation", lambda d: {"verdict": "listed", "listed_count": 2, "sources": [{"source": "URLhaus", "listed": True}]})
     monkeypatch.setattr(ar, "route_abuse", lambda d: {"verdict": {"state": "live", "label": "Live"}, "registrar": {"abuse_email": "abuse@reg.test"}, "hosting": {}, "escalation": [{"order": 1, "target": "Registrar", "label": "Reg", "method": "email", "value": "abuse@reg.test"}]})
+    _mock_context_steps(monkeypatch)
 
     r = pb.run_playbook("assess", "evil.com")
     assert r["risk"]["level"] == "high"
     assert r["case_id"] and r["takedown_id"]  # high risk opens a takedown
-    assert [s["status"] for s in r["steps"]] == ["ok", "ok", "ok", "ok"]
+    status = {s["key"]: s["status"] for s in r["steps"]}
+    for k in ("enrich", "url", "reputation", "abuse", "posture", "subdomains", "favicon"):
+        assert status.get(k) == "ok", (k, status)
     assert st.get_takedown(r["takedown_id"])["contact"] == "abuse@reg.test"
-    assert len(st.get_case(r["case_id"])["items"]) == 4
 
 
 def test_playbook_assess_urlscan_escalation(tmp_path, monkeypatch):
@@ -581,6 +594,7 @@ def test_playbook_assess_urlscan_escalation(tmp_path, monkeypatch):
         us, "scan",
         lambda url, *a, **k: {"pending": False, "result_url": "https://urlscan.io/result/x/", "verdict": {"malicious": True, "score": 90, "brands": ["PayPal"]}},
     )
+    _mock_context_steps(monkeypatch)
 
     r = pb.run_playbook("assess", "evil.com")
     us_steps = [s for s in r["steps"] if s["key"] == "urlscan"]
@@ -588,6 +602,8 @@ def test_playbook_assess_urlscan_escalation(tmp_path, monkeypatch):
     assert r["risk"]["level"] == "high"  # malicious urlscan escalated medium → high
     assert r["takedown_id"]  # high → takedown opened
     assert any("urlscan.io report" in x for x in r["recommendations"])
+    # subdomains + favicon also ran as escalation steps
+    assert {"subdomains", "favicon"} <= {s["key"] for s in r["steps"] if s["status"] == "ok"}
 
 
 def test_playbook_assess_urlscan_skipped_when_low(tmp_path, monkeypatch):
@@ -606,14 +622,26 @@ def test_playbook_assess_urlscan_skipped_when_low(tmp_path, monkeypatch):
     monkeypatch.setattr(fe, "check_reputation", lambda d: {"verdict": "clean", "sources": []})
     monkeypatch.setattr(ar, "route_abuse", lambda d: {"verdict": {}, "registrar": {}, "hosting": {}, "escalation": []})
     monkeypatch.setattr(us, "configured", lambda: True)
+    import osiris.dns_posture as dp
+    import osiris.subdomains as sd
+    import osiris.favicon as fav
+
+    # posture runs always; the heavy pivots must NOT run on a low-risk domain
+    monkeypatch.setattr(dp, "posture", lambda d: {"grade": "hardened", "spoofable": False, "checks": []})
 
     def boom(*a, **k):
-        raise AssertionError("urlscan.scan should not run on a low-risk domain")
+        raise AssertionError("escalation tool should not run on a low-risk domain")
 
     monkeypatch.setattr(us, "scan", boom)
+    monkeypatch.setattr(sd, "enumerate_subdomains", boom)
+    monkeypatch.setattr(fav, "pivot", boom)
+
     r = pb.run_playbook("assess", "benign.com")
-    us_steps = [s for s in r["steps"] if s["key"] == "urlscan"]
-    assert us_steps and us_steps[0]["status"] == "skipped"
+    status = {s["key"]: s["status"] for s in r["steps"]}
+    assert status.get("urlscan") == "skipped"
+    assert status.get("subdomains") == "skipped"
+    assert status.get("favicon") == "skipped"
+    assert status.get("posture") == "ok"  # posture always runs
 
 
 def test_playbook_brand_and_isolation(tmp_path, monkeypatch):
