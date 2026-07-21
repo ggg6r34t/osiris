@@ -233,7 +233,9 @@ organized into sections — **Search**, **Domain Tools**, **VIP**, **Cases**, **
   not yours — returning a screenshot, malicious verdict + score, targeted brands, and the contacted-infrastructure
   map for campaign pivoting; defaults to an **unlisted** scan so it isn't exposed in urlscan's public search;
   needs `URLSCAN_API_KEY`), **Wayback** (archive.org history for a domain — first/last capture, years archived, and a
-  per-year snapshot timeline; keyless), **Reputation** (checks a domain/IP against phishing & malware feeds — URLhaus, Spamhaus, SURBL, and
+  per-year snapshot timeline; keyless), **Subdomains** (enumerates a domain's subdomains from certificate-transparency
+  logs via crt.sh and resolves a sample to flag live ones; keyless), **DNS Posture** (grades email spoofability + DNS
+  hardening — SPF, DMARC policy, DKIM, DNSSEC, CAA, MTA-STS, BIMI → hardened/partial/spoofable; keyless), **Reputation** (checks a domain/IP against phishing & malware feeds — URLhaus, Spamhaus, SURBL, and
   Google Safe Browsing if a key is set — and rolls the hits into a listed/clean verdict), **Abuse Router** (for
   any domain: resolves *who to report abuse to* — registrar, hosting/CDN,
   email provider — with abuse-email **or web-form** links and an ordered escalation path, plus a live-status verdict

@@ -12,6 +12,7 @@ import type {
   CaseSummary,
   CustomPlatformMap,
   DeepSearchResponse,
+  DnsPostureResult,
   EmailAnalysis,
   HistoryEntry,
   Integrations,
@@ -31,6 +32,7 @@ import type {
   SearchResponse,
   SearchResult,
   Settings,
+  SubdomainsResult,
   Takedown,
   TakedownEmail,
   UrlAnalysis,
@@ -454,6 +456,20 @@ export function urlscanScan(
   return jsonFetch<UrlScanResult>("/api/urlscan", {
     method: "POST",
     body: JSON.stringify({ url, visibility }),
+  });
+}
+
+export function enumerateSubdomains(domain: string, refresh = false): Promise<SubdomainsResult> {
+  return jsonFetch<SubdomainsResult>("/api/subdomains", {
+    method: "POST",
+    body: JSON.stringify({ domain, refresh }),
+  });
+}
+
+export function dnsPosture(domain: string, refresh = false): Promise<DnsPostureResult> {
+  return jsonFetch<DnsPostureResult>("/api/dns-posture", {
+    method: "POST",
+    body: JSON.stringify({ domain, refresh }),
   });
 }
 

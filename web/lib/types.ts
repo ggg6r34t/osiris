@@ -340,6 +340,36 @@ export type WaybackResult = {
   error?: string;
 };
 
+export type Subdomain = { name: string; resolves: boolean | null; ip: string | null };
+
+export type SubdomainsResult = {
+  domain: string;
+  found: boolean;
+  total: number;
+  checked: number;
+  resolved: number;
+  subdomains: Subdomain[];
+  source?: string;
+  error?: string;
+};
+
+export type PostureCheck = {
+  key: string;
+  label: string;
+  status: "pass" | "warn" | "fail" | "info";
+  detail: string;
+  record: string | null;
+};
+
+export type DnsPostureResult = {
+  domain: string;
+  grade: "hardened" | "partial" | "spoofable";
+  spoofable: boolean;
+  dmarc_policy: string | null;
+  summary: string;
+  checks: PostureCheck[];
+};
+
 export type AbuseContactMethod = "email" | "form" | "none";
 
 export type AbuseEscalation = {

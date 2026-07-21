@@ -1127,6 +1127,34 @@ def api_urlscan(req: UrlScanRequest):
     return result
 
 
+@app.post("/api/subdomains")
+def api_subdomains(req: DomainRequest):
+    from osiris.subdomains import enumerate_subdomains
+
+    domain = _valid_domain(req.domain)
+    result = _cached(
+        f"subdomains:{domain}",
+        lambda: _bounded(lambda: _run(enumerate_subdomains, domain), 100),
+        refresh=req.refresh,
+    )
+    _record("subdomains", domain, {"total": result.get("total"), "resolved": result.get("resolved")})
+    return result
+
+
+@app.post("/api/dns-posture")
+def api_dns_posture(req: DomainRequest):
+    from osiris.dns_posture import posture
+
+    domain = _valid_domain(req.domain)
+    result = _cached(
+        f"dns-posture:{domain}",
+        lambda: _bounded(lambda: _run(posture, domain), 45),
+        refresh=req.refresh,
+    )
+    _record("dns-posture", domain, {"grade": result.get("grade"), "spoofable": result.get("spoofable")})
+    return result
+
+
 @app.post("/api/wayback")
 def api_wayback(req: DomainRequest):
     from osiris.wayback import history

@@ -692,6 +692,67 @@ def test_http_get_blocks_private(monkeypatch):
         en.http_get("http://127.0.0.1:8000/")
 
 
+def test_subdomains_parse(monkeypatch):
+    import osiris.subdomains as sd
+
+    class FakeResp:
+        status_code = 200
+        text = "[...]"
+
+        def json(self):
+            return [
+                {"name_value": "www.example.com\n*.example.com", "common_name": "example.com"},
+                {"name_value": "dev.example.com", "common_name": "api.example.com"},
+                {"name_value": "other.org", "common_name": "notmine.net"},  # filtered out
+            ]
+
+    monkeypatch.setattr(sd.requests, "get", lambda *a, **k: FakeResp())
+    monkeypatch.setattr(sd, "_resolve", lambda n: "1.2.3.4" if n == "www.example.com" else None)
+    r = sd.enumerate_subdomains("example.com")
+    names = {s["name"] for s in r["subdomains"]}
+    assert names == {"example.com", "www.example.com", "dev.example.com", "api.example.com"}
+    assert "other.org" not in names and r["total"] == 4
+    assert r["resolved"] == 1
+    assert r["subdomains"][0]["name"] == "www.example.com"  # live sorts first
+
+
+def test_subdomains_graceful(monkeypatch):
+    import osiris.subdomains as sd
+
+    monkeypatch.setattr(sd.time, "sleep", lambda *_a: None)
+
+    def boom(*a, **k):
+        raise sd.requests.RequestException("503")
+
+    monkeypatch.setattr(sd.requests, "get", boom)
+    r = sd.enumerate_subdomains("example.com")
+    assert r["found"] is False and r["total"] == 0 and "error" in r
+
+
+def test_dns_posture_grading(monkeypatch):
+    import osiris.dns_posture as dp
+
+    txt = {
+        "hardened.test": ["v=spf1 include:x -all"],
+        "_dmarc.hardened.test": ["v=DMARC1; p=reject; rua=mailto:x@y"],
+        "spoofable.test": ["v=spf1 ~all"],
+        "_dmarc.spoofable.test": ["v=DMARC1; p=none"],
+    }
+    monkeypatch.setattr(dp, "_txt", lambda res, name: txt.get(name, []))
+    monkeypatch.setattr(dp, "_has", lambda res, name, rtype: False)
+
+    a = dp.posture("hardened.test")
+    assert a["grade"] == "hardened" and a["spoofable"] is False and a["dmarc_policy"] == "reject"
+
+    b = dp.posture("spoofable.test")
+    assert b["grade"] == "spoofable" and b["spoofable"] is True and b["dmarc_policy"] == "none"
+
+    c = dp.posture("nodmarc.test")  # nothing configured
+    spf = next(x for x in c["checks"] if x["key"] == "spf")
+    dmarc = next(x for x in c["checks"] if x["key"] == "dmarc")
+    assert spf["status"] == "fail" and dmarc["status"] == "fail" and c["spoofable"] is True
+
+
 def test_wayback_parse_and_graceful(monkeypatch):
     import osiris.wayback as wb
 
