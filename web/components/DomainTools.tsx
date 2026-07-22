@@ -10,6 +10,7 @@ import WaybackView from "./domain/WaybackView";
 import SubdomainsView from "./domain/SubdomainsView";
 import PostureView from "./domain/PostureView";
 import FaviconView from "./domain/FaviconView";
+import HostExposureView from "./domain/HostExposureView";
 import DomainMatchView from "./domain/DomainMatchView";
 import DnstwistView from "./domain/DnstwistView";
 import CloneDetectView from "./domain/CloneDetectView";
@@ -29,6 +30,7 @@ type ToolKey =
   | "abuse-router"
   | "ip-pivot"
   | "favicon"
+  | "host-exposure"
   | "domain-match"
   | "dnstwist"
   | "clone-detect"
@@ -48,6 +50,7 @@ const TOOLS: { key: ToolKey; label: string; blurb: string }[] = [
   { key: "abuse-router", label: "Abuse Router", blurb: "Who to report to · is it still live?" },
   { key: "ip-pivot", label: "IP Pivot", blurb: "Reverse-IP · co-hosted domains" },
   { key: "favicon", label: "Favicon Pivot", blurb: "Favicon hash · other hosts reusing it (Shodan)" },
+  { key: "host-exposure", label: "Host Exposure", blurb: "Shodan: open ports · services · CVEs" },
   { key: "domain-match", label: "Domain Match", blurb: "Registered lookalikes" },
   { key: "dnstwist", label: "DNSTwist", blurb: "Permutation scan" },
   { key: "clone-detect", label: "Clone Detect", blurb: "Byte-identical clones" },
@@ -93,6 +96,7 @@ export default function DomainTools() {
       {tool === "abuse-router" && <AbuseRouterView />}
       {tool === "ip-pivot" && <IpPivotView />}
       {tool === "favicon" && <FaviconView />}
+      {tool === "host-exposure" && <HostExposureView />}
       {tool === "domain-match" && <DomainMatchView />}
       {tool === "dnstwist" && <DnstwistView />}
       {tool === "clone-detect" && <CloneDetectView />}

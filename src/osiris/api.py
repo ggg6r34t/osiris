@@ -1143,6 +1143,20 @@ def api_subdomains(req: DomainRequest):
     return result
 
 
+@app.post("/api/shodan-host")
+def api_shodan_host(req: DomainRequest):
+    from osiris.shodan_host import host_exposure
+
+    domain = _valid_domain(req.domain)
+    result = _cached(
+        f"shodan-host:{domain}",
+        lambda: _bounded(lambda: _run(host_exposure, domain), 45),
+        refresh=req.refresh,
+    )
+    _record("shodan-host", domain, {"ports": len(result.get("ports") or [])})
+    return result
+
+
 @app.post("/api/favicon")
 def api_favicon(req: DomainRequest):
     from osiris.favicon import pivot

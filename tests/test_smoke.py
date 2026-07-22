@@ -720,6 +720,52 @@ def test_http_get_blocks_private(monkeypatch):
         en.http_get("http://127.0.0.1:8000/")
 
 
+def test_shodan_host_graceful_and_parse(monkeypatch):
+    import osiris.shodan_host as sh
+
+    assert sh._looks_like_ip("8.8.8.8") and not sh._looks_like_ip("example.com")
+
+    monkeypatch.delenv("SHODAN_API_KEY", raising=False)
+    assert sh.host_exposure("example.com") == {"configured": False, "domain": "example.com"}
+
+    monkeypatch.setenv("SHODAN_API_KEY", "test")
+    monkeypatch.setattr(sh.socket, "gethostbyname", lambda d: "1.2.3.4")
+
+    class R:
+        status_code = 200
+
+        def json(self):
+            return {
+                "ports": [443, 22, 80],
+                "hostnames": ["x.com"],
+                "org": "Acme",
+                "asn": "AS111",
+                "country_name": "US",
+                "vulns": {"CVE-2021-1": {}, "CVE-2020-2": {}},
+                "data": [
+                    {"port": 443, "transport": "tcp", "product": "nginx", "version": "1.20", "data": "HTTP/1.1 200"},
+                    {"port": 22, "transport": "tcp", "product": "OpenSSH", "version": "8.9", "data": "SSH-2.0"},
+                ],
+            }
+
+    monkeypatch.setattr(sh.requests, "get", lambda *a, **k: R())
+    r = sh.host_exposure("example.com")
+    assert r["found"] and r["ip"] == "1.2.3.4"
+    assert r["ports"] == [22, 80, 443]
+    assert r["vulns"] == ["CVE-2020-2", "CVE-2021-1"]
+    assert r["services"][0]["port"] == 22  # sorted by port
+
+    # 404 → graceful not-found
+    class R404:
+        status_code = 404
+
+        def json(self):
+            return {}
+
+    monkeypatch.setattr(sh.requests, "get", lambda *a, **k: R404())
+    assert sh.host_exposure("example.com")["found"] is False
+
+
 def test_favicon_murmur3_matches_mmh3():
     import osiris.favicon as fav
 

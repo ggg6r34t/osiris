@@ -244,7 +244,8 @@ organized into sections — **Search**, **Domain Tools**, **VIP**, **Cases**, **
   `abuse_contacts.json`), **Domain Match** (certificate-transparency lookalikes), **DNSTwist** (permutation scan),
   **IP Pivot** (reverse-IP: other domains co-hosted on the same IP + ASN/host facts), **Favicon Pivot** (computes the
   Shodan-style favicon hash and finds other hosts reusing it — a phishing-kit/infra pivot; hash + Shodan link are
-  keyless, host listing uses `SHODAN_API_KEY`), **Clone Detect**
+  keyless, host listing uses `SHODAN_API_KEY`), **Host Exposure** (Shodan host lookup for a domain/IP — open ports,
+  detected services/versions, banners, and known CVEs; needs `SHODAN_API_KEY`), **Clone Detect**
   (byte-identical typosquat clones), **Brand Abuse (regex)** (regex search over the internal Panda
   dataset, with a built-in **Generate regex from a brand** helper that turns a brand/domain into a
   homoglyph/typosquat pattern), **Text Clone** and **Phishing Dorks** (dork-link builders), and **Deep Search** (all of the above

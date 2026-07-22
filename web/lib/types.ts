@@ -386,6 +386,33 @@ export type FaviconResult = {
   error?: string;
 };
 
+export type ShodanService = {
+  port: number | null;
+  transport: string | null;
+  product: string | null;
+  version: string | null;
+  banner: string;
+};
+
+export type ShodanHostResult = {
+  configured: boolean;
+  domain: string;
+  found?: boolean;
+  ip?: string;
+  error?: string;
+  ports?: number[];
+  hostnames?: string[];
+  org?: string | null;
+  isp?: string | null;
+  asn?: string | null;
+  os?: string | null;
+  country?: string | null;
+  last_update?: string | null;
+  services?: ShodanService[];
+  vulns?: string[];
+  shodan_url?: string;
+};
+
 export type AbuseContactMethod = "email" | "form" | "none";
 
 export type AbuseEscalation = {

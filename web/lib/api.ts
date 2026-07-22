@@ -33,6 +33,7 @@ import type {
   SearchResponse,
   SearchResult,
   Settings,
+  ShodanHostResult,
   SubdomainsResult,
   Takedown,
   TakedownEmail,
@@ -462,6 +463,13 @@ export function urlscanScan(
 
 export function enumerateSubdomains(domain: string, refresh = false): Promise<SubdomainsResult> {
   return jsonFetch<SubdomainsResult>("/api/subdomains", {
+    method: "POST",
+    body: JSON.stringify({ domain, refresh }),
+  });
+}
+
+export function shodanHost(domain: string, refresh = false): Promise<ShodanHostResult> {
+  return jsonFetch<ShodanHostResult>("/api/shodan-host", {
     method: "POST",
     body: JSON.stringify({ domain, refresh }),
   });
