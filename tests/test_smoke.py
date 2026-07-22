@@ -521,6 +521,26 @@ def test_vip_roster_storage(tmp_path, monkeypatch):
     assert st.get_vip(vid) is None
 
 
+def test_vip_history_trend(tmp_path, monkeypatch):
+    import osiris.storage as st
+
+    monkeypatch.setattr(st, "DB_PATH", str(tmp_path / "vt.db"))
+    monkeypatch.setattr(st, "_conn", None)
+
+    vid = st.create_vip("Jane", {"name": "Jane"})
+    for s, lv in [(30, "low"), (45, "medium"), (72, "high")]:
+        st.record_vip_result(vid, s, lv)
+
+    v = st.get_vip(vid)
+    assert v["trend"] == [30, 45, 72]
+    assert len(v["history"]) == 3 and v["history"][-1]["score"] == 72
+    assert st.list_vips()[0]["trend"] == [30, 45, 72]
+
+    # a None score does not add a history point
+    st.record_vip_result(vid, None, None)
+    assert st.get_vip(vid)["trend"] == [30, 45, 72]
+
+
 def test_integrations_status_no_secret_leak(monkeypatch):
     from osiris.api import api_integrations
 

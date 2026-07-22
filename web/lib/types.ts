@@ -489,6 +489,7 @@ export type SavedVip = {
   last_assessed: number | null;
   created_at: number;
   updated_at: number;
+  trend?: number[];
 };
 
 export type VipPivot = { label: string; url: string };

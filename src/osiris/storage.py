@@ -85,6 +85,14 @@ CREATE TABLE IF NOT EXISTS vip_profiles (
   created_at REAL NOT NULL,
   updated_at REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS vip_history (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  vip_id INTEGER NOT NULL,
+  score INTEGER,
+  level TEXT,
+  ts REAL NOT NULL,
+  FOREIGN KEY(vip_id) REFERENCES vip_profiles(id) ON DELETE CASCADE
+);
 """
 
 # Lifecycle states and the liveness states that count as "down" vs "up".
@@ -448,25 +456,50 @@ def update_vip(vip_id: int, name: str, profile: dict) -> Optional[dict]:
 
 
 def record_vip_result(vip_id: int, score: Optional[int], level: Optional[str]) -> None:
+    now = time.time()
     with _lock:
         db = _db()
         db.execute(
             "UPDATE vip_profiles SET last_score=?, last_level=?, last_assessed=?, updated_at=? WHERE id=?",
-            (score, level, time.time(), time.time(), vip_id),
+            (score, level, now, now, vip_id),
         )
+        if score is not None:
+            db.execute(
+                "INSERT INTO vip_history (vip_id, score, level, ts) VALUES (?,?,?,?)",
+                (vip_id, score, level, now),
+            )
         db.commit()
 
 
 def list_vips() -> list[dict]:
     with _lock:
-        rows = _db().execute("SELECT * FROM vip_profiles ORDER BY updated_at DESC").fetchall()
-    return [_vip_row(r) for r in rows]
+        db = _db()
+        rows = db.execute("SELECT * FROM vip_profiles ORDER BY updated_at DESC").fetchall()
+        hist = db.execute("SELECT vip_id, score FROM vip_history ORDER BY ts ASC").fetchall()
+    trends: dict = {}
+    for h in hist:
+        trends.setdefault(h["vip_id"], []).append(h["score"])
+    out = []
+    for r in rows:
+        v = _vip_row(r)
+        v["trend"] = trends.get(r["id"], [])[-12:]  # last 12 scores, oldest→newest
+        out.append(v)
+    return out
 
 
 def get_vip(vip_id: int) -> Optional[dict]:
     with _lock:
-        r = _db().execute("SELECT * FROM vip_profiles WHERE id=?", (vip_id,)).fetchone()
-    return _vip_row(r) if r else None
+        db = _db()
+        r = db.execute("SELECT * FROM vip_profiles WHERE id=?", (vip_id,)).fetchone()
+        if not r:
+            return None
+        hist = db.execute(
+            "SELECT score, level, ts FROM vip_history WHERE vip_id=? ORDER BY ts ASC", (vip_id,)
+        ).fetchall()
+    v = _vip_row(r)
+    v["history"] = [dict(h) for h in hist]
+    v["trend"] = [h["score"] for h in hist][-12:]
+    return v
 
 
 def delete_vip(vip_id: int) -> None:

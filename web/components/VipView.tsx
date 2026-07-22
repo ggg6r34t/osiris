@@ -161,6 +161,26 @@ function profileToForm(p: VipInput): FormState {
   };
 }
 
+function Sparkline({ points }: { points: number[] }) {
+  if (!points || points.length < 2) return null;
+  const w = 56;
+  const h = 16;
+  const max = Math.max(...points, 1);
+  const min = Math.min(...points, 0);
+  const span = max - min || 1;
+  const step = w / (points.length - 1);
+  const coords = points.map((p, i) => `${(i * step).toFixed(1)},${(h - ((p - min) / span) * h).toFixed(1)}`);
+  const last = points[points.length - 1];
+  const prev = points[points.length - 2];
+  const rising = last > prev;
+  const color = rising ? "var(--color-danger)" : last < prev ? "var(--color-live)" : "#64748b";
+  return (
+    <svg width={w} height={h} className="shrink-0" aria-hidden>
+      <polyline points={coords.join(" ")} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function relTime(ts: number | null): string {
   if (!ts) return "never";
   const days = (Date.now() / 1000 - ts) / 86400;
@@ -323,8 +343,11 @@ export default function VipView() {
                         <span className="ml-auto shrink-0 font-mono text-[11px] text-fg-faint">{v.last_score}</span>
                       )}
                     </div>
-                    <div className="mt-0.5 truncate font-mono text-[11px] text-fg-faint">
-                      {v.profile.company || "—"} · {relTime(v.last_assessed)}
+                    <div className="mt-0.5 flex items-center justify-between gap-2">
+                      <span className="truncate font-mono text-[11px] text-fg-faint">
+                        {v.profile.company || "—"} · {relTime(v.last_assessed)}
+                      </span>
+                      <Sparkline points={v.trend ?? []} />
                     </div>
                   </button>
                   <button
