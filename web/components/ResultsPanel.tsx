@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { checkUrls } from "@/lib/api";
-import { openLinks } from "@/lib/openLinks";
 import { safeHref } from "@/lib/url";
 import type { CheckResult, SearchResult } from "@/lib/types";
+import BatchOpen from "./BatchOpen";
 import CopyButton from "./CopyButton";
 import ExportMenu from "./ExportMenu";
 import ScreenshotButton from "./ScreenshotButton";
@@ -153,9 +153,7 @@ export default function ResultsPanel({ results, target }: ResultsPanelProps) {
   const [checking, setChecking] = useState(false);
   const [reachableOnly, setReachableOnly] = useState(false);
 
-  const [maxOpen, setMaxOpen] = useState("0");
   const [randomize, setRandomize] = useState(false);
-  const [openNote, setOpenNote] = useState<string | null>(null);
 
   // Transient state (selection/checks/filter) resets automatically: page.tsx
   // remounts this panel via a per-search `key` when a new result set arrives.
@@ -227,19 +225,6 @@ export default function ResultsPanel({ results, target }: ResultsPanelProps) {
     } finally {
       setChecking(false);
     }
-  }
-
-  function openSelected() {
-    const urls = filtered.filter((r) => selected.has(r.url)).map((r) => r.url);
-    const { opened, attempted } = openLinks(urls, {
-      maxOpen: Math.max(0, parseInt(maxOpen || "0", 10) || 0),
-      randomize,
-    });
-    setOpenNote(
-      opened < attempted
-        ? `Opened ${opened} of ${attempted}. Your browser blocked the rest — allow pop-ups for this site, then try again.`
-        : null,
-    );
   }
 
   const selectedUrls = filtered
@@ -324,24 +309,11 @@ export default function ResultsPanel({ results, target }: ResultsPanelProps) {
           <span className="font-medium text-accent">
             {selectedUrls.length} selected
           </span>
-          <button
-            type="button"
-            onClick={openSelected}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent-gradient shadow-glow px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-accent-strong"
-          >
-            <ExternalIcon className="h-3.5 w-3.5" />
-            Open selected
-          </button>
-          <label className="flex items-center gap-1.5 text-xs text-fg-muted">
-            max
-            <input
-              type="number"
-              min={0}
-              value={maxOpen}
-              onChange={(e) => setMaxOpen(e.target.value)}
-              className="w-16 rounded border border-line bg-surface px-2 py-1 text-fg outline-none focus:border-accent/60"
-            />
-          </label>
+          <BatchOpen
+            key={`${selectedUrls.length}:${selectedUrls[0] ?? ""}:${randomize}`}
+            urls={selectedUrls}
+            randomize={randomize}
+          />
           <label className="flex items-center gap-1.5 text-xs text-fg-muted">
             <input
               type="checkbox"
@@ -365,12 +337,6 @@ export default function ResultsPanel({ results, target }: ResultsPanelProps) {
             Clear
           </button>
         </div>
-      )}
-
-      {openNote && (
-        <p className="animate-fade-in rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-400">
-          {openNote}
-        </p>
       )}
 
       {/* Results */}

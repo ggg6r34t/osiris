@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ipPivot } from "@/lib/api";
 import type { IpPivotResult } from "@/lib/types";
 import AddToCase from "../AddToCase";
+import BatchOpen from "../BatchOpen";
 import ScreenshotButton from "../ScreenshotButton";
 import ExportRows from "./ExportRows";
 import { Card, KV, RunBar, ToolError, ToolLoading, useTool } from "./ui";
@@ -50,10 +51,13 @@ export default function IpPivotView() {
                 <span className="font-mono text-[11px] uppercase tracking-wider text-fg-muted">
                   {domains.length} domains on {data.ip}
                 </span>
-                <ExportRows
-                  rows={domains.map((d) => ({ domain: d, ip: data.ip }))}
-                  baseName={`reverse-ip-${data.ip}`}
-                />
+                <span className="flex items-center gap-2">
+                  <BatchOpen key={data.ip} urls={domains.map((d) => `http://${d}`)} />
+                  <ExportRows
+                    rows={domains.map((d) => ({ domain: d, ip: data.ip }))}
+                    baseName={`reverse-ip-${data.ip}`}
+                  />
+                </span>
               </div>
               <div className="max-h-[32rem] divide-y divide-line-soft/60 overflow-y-auto">
                 {domains.map((d) => (

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { enumerateSubdomains } from "@/lib/api";
 import type { SubdomainsResult } from "@/lib/types";
 import AddToCase from "../AddToCase";
+import BatchOpen from "../BatchOpen";
 import ExportRows from "./ExportRows";
 import { RunBar, ToolError, ToolLoading, useTool } from "./ui";
 
@@ -45,6 +46,7 @@ export default function SubdomainsView() {
               </span>
             </div>
             <div className="flex items-center gap-2">
+              <BatchOpen key={data.domain} urls={subs.filter((s) => s.resolves).map((s) => `http://${s.name}`)} />
               <ExportRows rows={shown} baseName={`subdomains-${data.domain}`} />
               <AddToCase kind="subdomains" data={{ domain: data.domain, total: data.total, resolved: data.resolved }} />
             </div>
