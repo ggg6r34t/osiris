@@ -157,9 +157,12 @@ Local config files (all gitignored, with committed `*.example.json` templates wh
 ### `--deep-search` flow
 
 `--deep-search` in `cli.py` is the "run everything" mode: it composes `enrich`, `find_similar_domains`,
-`detect_clones`, `text_clone_search`, `generate_search_links`, and `run_phishing_dorks` into one combined result
-set, then applies the same scoring/dedup/check/export pipeline as a normal search. When modifying any of those
-individual features, check whether `--deep-search`'s composition in `cli.py` needs a corresponding update.
+`detect_clones`, `text_clone_search`, `generate_search_links`, `run_phishing_dorks`, and (for domain targets) the
+newer intel tools — `dns_posture`, `feeds` (reputation), `subdomains`, `favicon`, `abuse_router`, plus `urlscan`
+(if `URLSCAN_API_KEY`) and `shodan_host` (if `SHODAN_API_KEY`) — into one combined `results` dict, and flattens the
+link-yielding parts (typosquats, clones, live subdomains, urlscan report, platform/dork links) into `all_links` for
+the same scoring/dedup/check/export pipeline as a normal search. When modifying any of those individual features,
+check whether `--deep-search`'s composition in `cli.py` needs a corresponding update.
 
 ### Custom platforms vs. custom templates
 

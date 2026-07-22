@@ -392,6 +392,40 @@ def main():
             clones = detect_clones(target, [d['domain'] for d in typo_domains])
             results["clone_sites"] = clones
 
+            # Newer intel tools — parity with the web workbench.
+            import os as _os
+            from osiris.abuse_router import route_abuse as _abuse
+            from osiris.dns_posture import posture as _posture
+            from osiris.favicon import pivot as _favicon
+            from osiris.feeds import check_reputation as _reputation
+            from osiris.subdomains import enumerate_subdomains as _subs
+
+            results["dns_posture"] = _posture(target)
+            results["reputation"] = _reputation(target)
+            results["subdomains"] = _subs(target)
+            results["favicon"] = _favicon(target)
+            results["abuse"] = _abuse(target)
+
+            from osiris.urlscan import configured as _us_cfg, scan as _us_scan
+            if _us_cfg():
+                try:
+                    results["urlscan"] = _us_scan(target if target.startswith("http") else "http://" + target)
+                except Exception as e:  # noqa: BLE001
+                    results["urlscan"] = {"error": e.__class__.__name__}
+            if _os.getenv("SHODAN_API_KEY"):
+                from osiris.shodan_host import host_exposure as _hostexp
+                results["host_exposure"] = _hostexp(target)
+
+            if not json_mode:
+                dp = results.get("dns_posture", {}) or {}
+                rep = results.get("reputation", {}) or {}
+                subs = results.get("subdomains", {}) or {}
+                console.print(
+                    f"  [dim]posture:[/] {dp.get('grade', '?')}  "
+                    f"[dim]reputation:[/] {rep.get('verdict', '?')}  "
+                    f"[dim]subdomains:[/] {subs.get('total', 0)} ({subs.get('resolved', 0)} live)"
+                )
+
         text_clones = text_clone_search(
             [target],
             open_browser=False,
@@ -418,11 +452,21 @@ def main():
             {"platform": "Clone Candidate", "category": "domain", "url": f"http://{d}"}
             for d in results.get("clone_sites", []) if isinstance(d, str)
         ]
+        subdomain_links = [
+            {"platform": "Subdomain", "category": "domain", "url": f"http://{s['name']}"}
+            for s in (results.get("subdomains", {}) or {}).get("subdomains", [])
+            if isinstance(s, dict) and s.get("resolves") and s.get("name")
+        ]
+        scan_links = []
+        if (results.get("urlscan") or {}).get("result_url"):
+            scan_links.append({"platform": "urlscan report", "category": "scan", "url": results["urlscan"]["result_url"]})
 
         # Combine all links to open in browser
         all_links = (
             typo_links +
             clone_links +
+            subdomain_links +
+            scan_links +
             results.get("text_clones", []) +
             results.get("platform_links", []) +
             results.get("phishing_dorks", [])
