@@ -380,6 +380,14 @@ def main():
         if not json_mode:
             console.print(f"[cyan bold]🕵️ Running Deep Search on:[/] {target}\n")
 
+        # Helper tools print progress via print()/rich Console (both resolve
+        # sys.stdout lazily). In --json mode, divert that to stderr so stdout
+        # stays pure JSON; restored right before we emit the JSON.
+        _json_stdout = None
+        if json_mode:
+            _json_stdout = sys.stdout
+            sys.stdout = sys.stderr
+
         results = {}
 
         if "." in target:
@@ -532,6 +540,8 @@ def main():
             if not json_mode:
                 console.print("[bold yellow]ℹ️ Deep Search results not saved (use --export to save output).[/bold yellow]")
 
+        if _json_stdout is not None:
+            sys.stdout = _json_stdout  # restore before emitting JSON
         if json_mode:
             output_json({"target": target, "results": results, "links": all_links})
         if args.log:

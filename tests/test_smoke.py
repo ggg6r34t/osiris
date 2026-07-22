@@ -1185,6 +1185,63 @@ def test_takedown_no_autochange_from_terminal(tmp_path, monkeypatch):
     assert t["status"] == "new" and t["status_changed"] is False
 
 
+def test_abuse_domain_rdap_realistic_parse(monkeypatch):
+    import osiris.abuse_router as ar
+
+    payload = {
+        "objectClassName": "domain",
+        "ldhName": "EXAMPLE.COM",
+        "status": ["client transfer prohibited", "server delete prohibited"],
+        "events": [
+            {"eventAction": "registration", "eventDate": "1997-09-15T04:00:00Z"},
+            {"eventAction": "expiration", "eventDate": "2028-09-14T04:00:00Z"},
+        ],
+        "entities": [
+            {
+                "roles": ["registrar"],
+                "vcardArray": ["vcard", [["version", {}, "text", "4.0"], ["fn", {}, "text", "MarkMonitor Inc."]]],
+                "publicIds": [{"type": "IANA Registrar ID", "identifier": "292"}],
+                "entities": [
+                    {
+                        "roles": ["abuse"],
+                        "vcardArray": ["vcard", [["fn", {}, "text", "Abuse"], ["email", {}, "text", "abusecomplaints@markmonitor.com"], ["tel", {}, "text", "+1.2083895740"]]],
+                    }
+                ],
+            },
+            {
+                "roles": ["registrant"],
+                "vcardArray": ["vcard", [["fn", {}, "text", "Redacted"], ["org", {}, "text", "Acme Corp"], ["email", {}, "text", "reg@acme.test"]]],
+            },
+        ],
+    }
+
+    class R:
+        status_code = 200
+
+        def json(self):
+            return payload
+
+    monkeypatch.setattr(ar.requests, "get", lambda *a, **k: R())
+    d = ar.domain_rdap("example.com")
+    assert d["registrar"] == "MarkMonitor Inc."
+    assert d["registrar_iana_id"] == "292"
+    assert d["registrar_abuse_email"] == "abusecomplaints@markmonitor.com"
+    assert d["registrar_abuse_phone"] == "+1.2083895740"
+    assert d["registration"].startswith("1997-09-15") and d["expiration"].startswith("2028-09-14")
+    assert "client transfer prohibited" in d["status"]
+    assert d["registrant"]["org"] == "Acme Corp" and d["registrant"]["email"] == "reg@acme.test"
+
+    # 404 → not_found (graceful)
+    class R404:
+        status_code = 404
+
+        def json(self):
+            return {}
+
+    monkeypatch.setattr(ar.requests, "get", lambda *a, **k: R404())
+    assert ar.domain_rdap("nope.example")["not_found"] is True
+
+
 def test_abuse_domain_age_helpers():
     import osiris.abuse_router as ar
 
